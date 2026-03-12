@@ -3,8 +3,14 @@ $ConfigPath = Join-Path $BaseDir "data.ini"
 $Lang = "es-mx"
 $BinDir = Join-Path $BaseDir "bin"
 $AriaPath = Join-Path $BinDir "aria2c.exe"
-$DirLangs = Join-Path $BaseDir "Langs"
-$DirFODs = Join-Path $BaseDir "OnDemand"
+$WorkDir = $null
+if (Test-Path (Join-Path $BaseDir "W10MUI")) {
+    $WorkDir = Join-Path $BaseDir "W10MUI"
+} else {
+    $WorkDir = $BaseDir
+}
+$DirLangs = Join-Path $WorkDir "Langs"
+$DirFODs = Join-Path $WorkDir "OnDemand"
 $Objetivos = @(
     "Microsoft-Windows-Client-LanguagePack-Package-amd64-es-MX.esd",
     "Microsoft-Windows-LanguageFeatures-Basic-es-mx-Package-amd64.cab",
@@ -119,7 +125,7 @@ function Main {
     foreach ($descarga in $downloads) {
         Write-Host "-> Bajando: $($descarga.Nombre)"
         $targetDir = Split-Path -Parent $descarga.Destino
-        & $AriaExe --no-conf --allow-overwrite=true --auto-file-renaming=false -d $targetDir -o (Split-Path -Leaf $descarga.Destino) $descarga.Url
+        & $AriaExe --no-conf --allow-overwrite=true --auto-file-renaming=false -x 5 -s 5 -d $targetDir -o (Split-Path -Leaf $descarga.Destino) $descarga.Url
     }
 
     Write-Host "¡Clasificación y descarga completadas! Archivos listos en \Langs y \OnDemand" -ForegroundColor Cyan

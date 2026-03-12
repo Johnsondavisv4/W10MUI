@@ -1,6 +1,12 @@
 $BaseDir = $PSScriptRoot
 $ConfigPath = Join-Path $BaseDir "data.ini"
-$DownloadsDir = Join-Path $BaseDir "Updates"
+$WorkDir = $null
+if (Test-Path (Join-Path $BaseDir "W10MUI")) {
+    $WorkDir = Join-Path $BaseDir "W10MUI"
+} else {
+    $WorkDir = $BaseDir
+}
+$DownloadsDir = Join-Path $WorkDir "Updates"
 $BinDir = Join-Path $BaseDir "bin"
 $AriaPath = Join-Path $BinDir "aria2c.exe"
 
@@ -118,7 +124,7 @@ function Main {
         }
 
         Write-Host "-> Bajando: $($item.Out)" -ForegroundColor Yellow
-        & $AriaExe --no-conf --allow-overwrite=true --auto-file-renaming=false -d $targetDir -o (Split-Path -Leaf $targetPath) $item.Url
+        & $AriaExe --no-conf --allow-overwrite=true --auto-file-renaming=false -x 5 -s 5 -d $targetDir -o (Split-Path -Leaf $targetPath) $item.Url
     }
 
     Write-Host "Descarga completada." -ForegroundColor Cyan
