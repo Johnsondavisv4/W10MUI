@@ -137,14 +137,6 @@ jobs:
           rm -f W10MUI/README.md
           rm -f W10MUI/W10MUI_Mini.cmd
 
-          if ! grep -q "net session >nul 2>&1" W10MUI/W10MUI.cmd; then
-            perl -0777 -i -pe 'if (index($_, "net session >nul 2>&1") < 0) { s@(if exist "%SystemRoot%\\SysArm32\\cmd\.exe" if /i %PROCESSOR_ARCHITECTURE%==AMD64 \(\Rsetlocal EnableDelayedExpansion\Rstart %SystemRoot%\\SysArm32\\cmd\.exe /c ""!_cmdf!" "\Rexit /b\R\))@$1\R\Rnet session >nul 2>&1\Rif %errorLevel% neq 0 (\R    echo Solicitando permisos de administrador...\R    powershell -Command "Start-Process -FilePath \"%~f0\" -ArgumentList \"%*\" -Verb RunAs"\R    exit\R)@s; }' W10MUI/W10MUI.cmd
-          fi
-
-          if ! grep -q "net session >nul 2>&1" W10MUI/Remove_Failure_MountDir_TempDir.cmd; then
-            perl -0777 -i -pe 'if (index($_, "net session >nul 2>&1") < 0) { s@(if exist "%SystemRoot%\\SysArm32\\cmd\.exe" if /i %PROCESSOR_ARCHITECTURE%==AMD64 if not defined _rel2 \(\Rsetlocal EnableDelayedExpansion\Rstart %SystemRoot%\\SysArm32\\cmd\.exe /c ""!_cmdf!" -arm "\Rexit /b\R\))@$1\R\Rnet session >nul 2>&1\Rif %errorLevel% neq 0 (\R    echo Solicitando permisos de administrador...\R    powershell -Command "Start-Process -FilePath \"%~f0\" -ArgumentList \"%*\" -Verb RunAs"\R    exit\R)@s; }' W10MUI/Remove_Failure_MountDir_TempDir.cmd
-          fi
-
       - name: Update local state file after sync
         if: steps.compare.outputs.sync_needed == 'true'
         env:
