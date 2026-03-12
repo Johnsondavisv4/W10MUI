@@ -130,6 +130,13 @@ jobs:
           fi
           cp -f W10UI.ini W10MUI/Updates/W10UI.ini
 
+          rm -f W10MUI/aria2_links.txt
+          rm -f W10MUI/aria2_uupdump-ReadMe.txt
+          rm -f W10MUI/aria2_uupdump.cmd
+          rm -f W10MUI/README-W10MUI_Mini.md
+          rm -f W10MUI/README.md
+          rm -f W10MUI/W10MUI_Mini.cmd
+
       - name: Update local state file after sync
         if: steps.compare.outputs.sync_needed == 'true'
         env:
