@@ -115,6 +115,21 @@ jobs:
           cp -a "$tmp_dir/src/W10MUI/." W10MUI/
           rm -rf "$tmp_dir"
 
+      - name: Apply local customizations
+        if: steps.compare.outputs.sync_needed == 'true'
+        run: |
+          set -euo pipefail
+
+          mkdir -p W10MUI/Langs W10MUI/OnDemand W10MUI/Updates
+          find W10MUI/Langs -mindepth 1 -delete
+          find W10MUI/OnDemand -mindepth 1 -delete
+
+          if [ ! -f W10UI.ini ]; then
+            echo "No existe W10UI.ini en la raiz del repo."
+            exit 1
+          fi
+          cp -f W10UI.ini W10MUI/Updates/W10UI.ini
+
       - name: Update local state file after sync
         if: steps.compare.outputs.sync_needed == 'true'
         env:
