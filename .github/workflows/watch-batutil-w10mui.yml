@@ -24,9 +24,15 @@ jobs:
 
       - name: Get current upstream SHA
         id: current
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          sha=$(curl -fsSL "https://api.github.com/repos/${EXTERNAL_OWNER}/${EXTERNAL_REPO}/commits/${EXTERNAL_BRANCH}" | jq -r '.sha')
+          sha=$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${EXTERNAL_OWNER}/${EXTERNAL_REPO}/commits/${EXTERNAL_BRANCH}" | jq -r '.sha')
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
       - name: Read stored SHA from repo file
@@ -45,6 +51,7 @@ jobs:
         env:
           OLD_SHA: ${{ steps.stored.outputs.sha }}
           NEW_SHA: ${{ steps.current.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -67,7 +74,11 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           else
             compare_url="https://api.github.com/repos/${EXTERNAL_OWNER}/${EXTERNAL_REPO}/compare/${OLD_SHA}...${NEW_SHA}"
-            curl -fsSL "$compare_url" > compare.json
+            curl -fsSL \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$compare_url" > compare.json
 
             jq -r '.files[].filename' compare.json > files_all.txt
             grep -E "^${WATCH_PREFIX}" files_all.txt > files_w10mui.txt || true
@@ -123,6 +134,12 @@ jobs:
           mkdir -p W10MUI/Langs W10MUI/OnDemand W10MUI/Updates
           find W10MUI/Langs -mindepth 1 -delete
           find W10MUI/OnDemand -mindepth 1 -delete
+
+          if [ ! -f W10MUI.cmd ]; then
+            echo "No existe W10MUI.cmd en la raiz del repo."
+            exit 1
+          fi
+          cp -f W10MUI.cmd W10MUI/W10MUI.cmd
 
           if [ ! -f W10UI.ini ]; then
             echo "No existe W10UI.ini en la raiz del repo."
