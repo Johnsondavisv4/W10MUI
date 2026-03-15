@@ -6,26 +6,20 @@ if ($PSVersionTable.PSVersion.Major -le 5) {
 
 $BaseDir = $PSScriptRoot
 $ConfigPath = Join-Path $BaseDir "data.ini"
-$Lang = "es-mx"
 $BinDir = Join-Path $BaseDir "bin"
 $AriaPath = Join-Path $BinDir "aria2c.exe"
-$WorkDir = $null
+
 if (Test-Path (Join-Path $BaseDir "W10MUI")) {
     $WorkDir = Join-Path $BaseDir "W10MUI"
 } else {
     $WorkDir = $BaseDir
 }
+
 $DirLangs = Join-Path $WorkDir "Langs"
 $DirFODs = Join-Path (Join-Path $WorkDir "OnDemand") "x64"
-$Objetivos = @(
-    "Microsoft-Windows-Client-LanguagePack-Package-amd64-es-MX.esd"
-)
-$FodMatch = "es-mx-Package"
 
 function GetID {
-    param (
-        [string]$IniPath
-    )
+    param ([string]$IniPath)
 
     if (-not (Test-Path $IniPath)) {
         Write-Error "No se encontro data.ini."
@@ -74,9 +68,7 @@ function GetID {
 }
 
 function Get-Aria {
-    param (
-        [string]$TargetPath
-    )
+    param ([string]$TargetPath)
 
     $ariaUrl = "https://uupdump.net/misc/aria2c.exe"
     $ariaDir = Split-Path -Parent $TargetPath
@@ -120,9 +112,8 @@ function Main {
     $downloads = @()
     Write-Host "Buscando archivos objetivos en la respuesta..." -ForegroundColor Cyan
 
-    # Definimos las reglas de búsqueda claras
-    $RegexPack = "(?=.*LanguagePack)(?=.*es-[mM][xX]).*"
-    $RegexFOD  = "(?=.*LanguageFeatures)(?=.*es-[mM][xX]).*"
+    $RegexPack = "(?=.*LanguagePack)(?=.*es-mx).*"
+    $RegexFOD  = "(?=.*LanguageFeatures)(?=.*es-mx).*"
 
     foreach ($nombreArchivo in $archivos.Keys) {
         $archivoData = $archivos[$nombreArchivo]
@@ -132,17 +123,12 @@ function Main {
             continue
         }
 
-        # Evaluamos y separamos según la expresión regular
         if ($nombreArchivo -match $RegexPack) {
-            
             $destino = Join-Path $LangsDir $nombreArchivo
             $downloads += [PSCustomObject]@{ Nombre = $nombreArchivo; Url = $url; Destino = $destino }
-            
         } elseif ($nombreArchivo -match $RegexFOD) {
-            
             $destino = Join-Path $FodsDir $nombreArchivo
             $downloads += [PSCustomObject]@{ Nombre = $nombreArchivo; Url = $url; Destino = $destino }
-            
         }
     }
 
@@ -166,5 +152,4 @@ function Main {
     }
 }
 
-# La llamada a la función ahora es mucho más limpia
 Main -AriaExe $AriaPath -LangsDir $DirLangs -FodsDir $DirFODs -IniPath $ConfigPath
