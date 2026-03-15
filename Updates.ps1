@@ -6,20 +6,19 @@ if ($PSVersionTable.PSVersion.Major -le 5) {
 
 $BaseDir = $PSScriptRoot
 $ConfigPath = Join-Path $BaseDir "data.ini"
-$WorkDir = $null
+$BinDir = Join-Path $BaseDir "bin"
+$AriaPath = Join-Path $BinDir "aria2c.exe"
+
 if (Test-Path (Join-Path $BaseDir "W10MUI")) {
     $WorkDir = Join-Path $BaseDir "W10MUI"
 } else {
     $WorkDir = $BaseDir
 }
+
 $DownloadsDir = Join-Path $WorkDir "Updates"
-$BinDir = Join-Path $BaseDir "bin"
-$AriaPath = Join-Path $BinDir "aria2c.exe"
 
 function GetID {
-    param (
-        [string]$IniPath
-    )
+    param ([string]$IniPath)
 
     if (-not (Test-Path $IniPath)) {
         Write-Error "No se encontro data.ini."
@@ -68,9 +67,7 @@ function GetID {
 }
 
 function Get-Aria {
-    param (
-        [string]$TargetPath
-    )
+    param ([string]$TargetPath)
 
     $ariaUrl = "https://uupdump.net/misc/aria2c.exe"
     $ariaDir = Split-Path -Parent $TargetPath
@@ -86,7 +83,8 @@ function Get-Aria {
 function Main {
     param (
         [string]$AriaExe,
-        [string]$IniPath
+        [string]$IniPath,
+        [string]$TargetDir
     )
 
     $id = GetID -IniPath $IniPath
@@ -96,7 +94,7 @@ function Main {
         Get-Aria -TargetPath $AriaExe
     }
 
-    Write-Host "Descargando script aria2..." -ForegroundColor Cyan
+    Write-Host "Descargando script aria2 para las actualizaciones..." -ForegroundColor Cyan
     $raw = Invoke-WebRequest -Uri $ApiUrl -UseBasicParsing
     $lines = $raw.Content -split "`r?`n"
 
@@ -107,12 +105,12 @@ function Main {
     foreach ($line in $lines) {
         $trim = $line.Trim()
 
-        if ($trim.Length -eq 0) {
+        if ($trim.Length -eq 0 -or $trim.StartsWith("#")) {
             if ($currentUrl -and $currentOut) {
                 $downloads += [PSCustomObject]@{ Url = $currentUrl; Out = $currentOut }
+                $currentUrl = $null
+                $currentOut = $null
             }
-            $currentUrl = $null
-            $currentOut = $null
             continue
         }
 
@@ -139,14 +137,15 @@ function Main {
     Write-Host "Se encontraron $($downloads.Count) archivos. Iniciando descarga..." -ForegroundColor Green
 
     foreach ($item in $downloads) {
-        $targetPath = Join-Path -Path $DownloadsDir -ChildPath $item.Out
-        $targetDir = Split-Path -Parent $targetPath
-        if ($targetDir -and -not (Test-Path $targetDir)) {
-            New-Item -ItemType Directory -Path $targetDir | Out-Null
+        $itemPath = Join-Path -Path $TargetDir -ChildPath $item.Out
+        $itemDir = Split-Path -Parent $itemPath
+        
+        if (-not (Test-Path $itemDir)) {
+            New-Item -ItemType Directory -Path $itemDir | Out-Null
         }
 
         Write-Host "-> Bajando: $($item.Out)" -ForegroundColor Yellow
-        & $AriaExe --no-conf --allow-overwrite=true --auto-file-renaming=false -x 5 -s 5 -d $targetDir -o (Split-Path -Leaf $targetPath) $item.Url
+        & $AriaExe --no-conf --allow-overwrite=true --auto-file-renaming=false -x 5 -s 5 -d $itemDir -o (Split-Path -Leaf $itemPath) $item.Url
     }
 
     Write-Host "Descarga completada." -ForegroundColor Cyan
@@ -155,4 +154,4 @@ function Main {
     }
 }
 
-Main -AriaExe $AriaPath -IniPath $ConfigPath
+Main -AriaExe $AriaPath -IniPath $ConfigPath -TargetDir $DownloadsDir
