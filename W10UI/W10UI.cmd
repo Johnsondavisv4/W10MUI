@@ -1,5 +1,5 @@
 @setlocal DisableDelayedExpansion
-@set uiv=v10.59b
+@set uiv=v10.60
 @echo off
 :: enable debug mode, you must also set target and repo (if updates are not beside the script)
 set _Debug=0
@@ -734,6 +734,7 @@ if %_offdu%==1 if not exist "!_cabdir!\du\" (
   mkdir "!_cabdir!\du" %_Nul3%
   for %%i in (!isoupdate!) do expand.exe -r -f:* "!repo!\%%~i" "!_cabdir!\du" %_Nul1%
   if %_build% geq 26100 if exist "!mountdir!\Windows\System32\ServicingCommon.dll" if not exist "!_cabdir!\du\ServicingCommon.dll" copy /y "!mountdir!\Windows\System32\ServicingCommon.dll" "!_cabdir!\du\" %_Nul3%
+  if %_build% geq 26100 if exist "!mountdir!\Windows\System32\migwiz\unbcl.dll" if not exist "!_cabdir!\du\unbcl.dll" copy /y "!mountdir!\Windows\System32\migwiz\unbcl.dll" "!_cabdir!\du\" %_Nul3%
   if exist "!mountdir!\Windows\Servicing\Packages\WinPE-Setup-Package~*.mum" (
   if exist "!mountdir!\sources\setup.exe" if exist "!_cabdir!\du\setup.exe" del /f /q "!_cabdir!\du\setup.exe" %_Nul3%
   if %_build% geq 26052 if exist "!mountdir!\sources\setuphost.exe" if exist "!_cabdir!\du\setuphost.exe" del /f /q "!_cabdir!\du\setuphost.exe" %_Nul3%
@@ -749,6 +750,7 @@ if exist "!mountdir!\sources\setup.exe" if not exist "!mountdir!\Windows\Servici
   for %%i in (!isoupdate!) do expand.exe -r -f:* "!repo!\%%~i" "!_cabdir!\du" %_Nul1%
   )
   if %_build% geq 26100 if exist "!mountdir!\Windows\System32\ServicingCommon.dll" if not exist "!_cabdir!\du\ServicingCommon.dll" copy /y "!mountdir!\Windows\System32\ServicingCommon.dll" "!_cabdir!\du\" %_Nul3%
+  if %_build% geq 26100 if exist "!mountdir!\Windows\System32\migwiz\unbcl.dll" if not exist "!_cabdir!\du\unbcl.dll" copy /y "!mountdir!\Windows\System32\migwiz\unbcl.dll" "!_cabdir!\du\" %_Nul3%
   robocopy "!_cabdir!\du" "!mountdir!\sources" /XL /XX /XO %_Nul3%
   if exist "!_cabdir!\du\*.ini" xcopy /CRY "!_cabdir!\du\*.ini" "!mountdir!\sources\" %_Nul3%
 )
@@ -770,6 +772,7 @@ if %dvd%==0 goto :fin
 if exist "%SystemRoot%\temp\UpdateAgent.dll" del /f /q "%SystemRoot%\temp\UpdateAgent.dll" %_Nul3%
 if exist "%SystemRoot%\temp\Facilitator.dll" del /f /q "%SystemRoot%\temp\Facilitator.dll" %_Nul3%
 if exist "%SystemRoot%\temp\ServicingCommon.dll" del /f /q "%SystemRoot%\temp\ServicingCommon.dll" %_Nul3%
+if exist "%SystemRoot%\temp\unbcl.dll" del /f /q "%SystemRoot%\temp\unbcl.dll" %_Nul3%
 if "%indices%"=="*" set "indices="&for /L %%# in (1,1,!imgcount!) do set "indices=!indices! %%#"
 call :mount sources\install.wim
 if exist "!_work!\winre.wim" del /f /q "!_work!\winre.wim" %_Nul1%
@@ -791,6 +794,7 @@ echo %%~i
 expand.exe -r -f:* "!repo!\%%~i" "!_cabdir!\du" %_Nul1%
 )
 if %_build% geq 26100 if exist "%SystemRoot%\temp\ServicingCommon.dll" if not exist "!_cabdir!\du\ServicingCommon.dll" copy /y "%SystemRoot%\temp\ServicingCommon.dll" "!_cabdir!\du\" %_Nul3%
+if %_build% geq 26100 if exist "%SystemRoot%\temp\unbcl.dll" if not exist "!_cabdir!\du\unbcl.dll" copy /y "%SystemRoot%\temp\unbcl.dll" "!_cabdir!\du\" %_Nul3%
 if %uupboot%==0 (
 if exist "!_cabdir!\du\setup.exe" del /f /q "!_cabdir!\du\setup.exe" %_Nul3%
 if %_build% geq 26052 if exist "!_cabdir!\du\setuphost.exe" del /f /q "!_cabdir!\du\setuphost.exe" %_Nul3%
@@ -2040,11 +2044,16 @@ if %_build% geq 20231 if %_build% lss 26052 if %xmsu% equ 0 (
   set "lcudir=%dest%"
   set "lcupkg=!package!"
 )
+set in_cu=0
+if %_embd% equ 0 if %_build% geq 26100 if %_build% lss 28000 if exist "!mumtarget!\Windows\Servicing\Packages\Package_for_RollupFix*.mum" echo !package! |findstr /i "KB5043080" %_Nul1% && (
+  for /f "tokens=5 delims=~." %%# in ('dir /b /od "!mumtarget!\Windows\Servicing\Packages\Package_for_RollupFix*.mum"') do set in_cu=%%#
+)
 if exist "!mumtarget!\Windows\Servicing\Packages\*WinPE-LanguagePack*.mum" (
 if %xmsu% equ 1 (
   call :setlcu
   goto :eof
   )
+if %in_cu% gtr 1742 goto :eof
 set "cumulative=!cumulative! %dest%\update.mum"
 goto :eof
 )
@@ -2606,6 +2615,7 @@ if exist "!mountdir!\Windows\Servicing\Packages\Microsoft-Windows-Server*Edition
 if exist "!mountdir!\Windows\system32\UpdateAgent.dll" if not exist "%SystemRoot%\temp\UpdateAgent.dll" copy /y "!mountdir!\Windows\system32\UpdateAgent.dll" %SystemRoot%\temp\ %_Nul3%
 if exist "!mountdir!\Windows\system32\Facilitator.dll" if not exist "%SystemRoot%\temp\Facilitator.dll" copy /y "!mountdir!\Windows\system32\Facilitator.dll" %SystemRoot%\temp\ %_Nul3%
 if exist "!mountdir!\Windows\system32\ServicingCommon.dll" if not exist "%SystemRoot%\temp\ServicingCommon.dll" copy /y "!mountdir!\Windows\system32\ServicingCommon.dll" %SystemRoot%\temp\ %_Nul3%
+if exist "!mountdir!\Windows\system32\migwiz\unbcl.dll" if not exist "%SystemRoot%\temp\unbcl.dll" copy /y "!mountdir!\Windows\system32\migwiz\unbcl.dll" %SystemRoot%\temp\ %_Nul3%
 if exist "!mountdir!\sources\setup.exe" call :boots
 )
 if %wim%==1 if exist "!_wimpath!\setup.exe" (
@@ -2623,6 +2633,7 @@ if defined isoupdate if not exist "!mountdir!\sources\setup.exe" if not exist "!
   expand.exe -r -f:* "!repo!\%%~i" "!_cabdir!\du" %_Nul1%
   )
   if %_build% geq 26100 if exist "!mountdir!\Windows\System32\ServicingCommon.dll" if not exist "!_cabdir!\du\ServicingCommon.dll" copy /y "!mountdir!\Windows\System32\ServicingCommon.dll" "!_cabdir!\du\" %_Nul3%
+  if %_build% geq 26100 if exist "!mountdir!\Windows\System32\migwiz\unbcl.dll" if not exist "!_cabdir!\du\unbcl.dll" copy /y "!mountdir!\Windows\System32\migwiz\unbcl.dll" "!_cabdir!\du\" %_Nul3%
   xcopy /CRUY "!_cabdir!\du" "!target!\sources\" %_Nul3%
   if exist "!_cabdir!\du\*.ini" xcopy /CRY "!_cabdir!\du\*.ini" "!target!\sources\" %_Nul3%
   for /f %%# in ('dir /b /ad "!_cabdir!\du\*-*" %_Nul6%') do if exist "!target!\sources\%%#\*.mui" copy /y "!_cabdir!\du\%%#\*" "!target!\sources\%%#\" %_Nul3%
@@ -2797,6 +2808,7 @@ if defined isoupdate if not exist "!mountdir!\Windows\Servicing\Packages\WinPE-S
   mkdir "!_cabdir!\du" %_Nul3%
   for %%i in (!isoupdate!) do expand.exe -r -f:* "!repo!\%%~i" "!_cabdir!\du" %_Nul1%
   if %_build% geq 26100 if exist "%SystemRoot%\temp\ServicingCommon.dll" if not exist "!_cabdir!\du\ServicingCommon.dll" copy /y "%SystemRoot%\temp\ServicingCommon.dll" "!_cabdir!\du\" %_Nul3%
+  if %_build% geq 26100 if exist "%SystemRoot%\temp\unbcl.dll" if not exist "!_cabdir!\du\unbcl.dll" copy /y "%SystemRoot%\temp\unbcl.dll" "!_cabdir!\du\" %_Nul3%
   robocopy "!_cabdir!\du" "!mountdir!\sources" /XL /XX /XO %_Nul3%
   if exist "!_cabdir!\du\*.ini" xcopy /CRY "!_cabdir!\du\*.ini" "!mountdir!\sources\" %_Nul3%
   xcopy /CRUY "!mountdir!\sources" "!target!\sources\" %_Nul3%
@@ -2815,14 +2827,17 @@ set "isoboot=%~1"
 if %UpdtBootFiles% neq 1 goto :nonewboot
 xcopy /CIDRY "!mountdir!\Windows\Boot\DVD\EFI\en-US\efisys.bin" "!isoboot!\efi\microsoft\boot\" %_Nul3%
 xcopy /CIDRY "!mountdir!\Windows\Boot\DVD\EFI\en-US\efisys_noprompt.bin" "!isoboot!\efi\microsoft\boot\" %_Nul3%
-if /i not %arch%==arm64 (
-xcopy /CIDRY "!mountdir!\Windows\Boot\PCAT\bootmgr" "!isoboot!\" %_Nul3%
-xcopy /CIDRY "!mountdir!\Windows\Boot\PCAT\memtest.exe" "!isoboot!\boot\" %_Nul3%
+xcopy /CIDRY "!mountdir!\Windows\Boot\EFI\boot.stl" "!isoboot!\efi\microsoft\boot\" %_Nul3%
+xcopy /CIDRY "!mountdir!\Windows\Boot\EFI\boot.pnd.stl" "!isoboot!\efi\microsoft\boot\" %_Nul3%
 xcopy /CIDRY "!mountdir!\Windows\Boot\EFI\memtest.efi" "!isoboot!\efi\microsoft\boot\" %_Nul3%
-)
+:: if /i not %arch%==arm64 (
+:: xcopy /CIDRY "!mountdir!\Windows\Boot\PCAT\bootmgr" "!isoboot!\" %_Nul3%
+:: xcopy /CIDRY "!mountdir!\Windows\Boot\PCAT\memtest.exe" "!isoboot!\boot\" %_Nul3%
+:: )
 if not exist "!mountdir!\Windows\Boot\EFI_EX\*_EX.efi" goto :nonewboot
+if exist "!isoboot!\efi\boot\bootmgfw.efi" xcopy /CIDRY "!mountdir!\Windows\Boot\EFI_EX\bootmgfw_EX.efi" "!isoboot!\efi\boot\bootmgfw.efi" %_Nul3%
 xcopy /CIDRY "!mountdir!\Windows\Boot\EFI_EX\bootmgfw_EX.efi" "!isoboot!\efi\boot\!efifile!" %_Nul3%
-xcopy /CIDRY "!mountdir!\Windows\Boot\EFI_EX\bootmgr_EX.efi" "!isoboot!\bootmgr.efi" %_Nul3%
+if exist "!mountdir!\Windows\Boot\EFI_EX\bootmgr_EX.efi" (xcopy /CIDRY "!mountdir!\Windows\Boot\EFI_EX\bootmgr_EX.efi" "!isoboot!\bootmgr.efi" %_Nul3%) else (xcopy /CIDRY "!mountdir!\Windows\Boot\EFI\bootmgr.efi" "!isoboot!\" %_Nul3%)
 xcopy /CIDRY "!mountdir!\Windows\Boot\DVD_EX\EFI\en-US\efisys_EX.bin" "!isoboot!\efi\microsoft\boot\efisys.bin" %_Nul3%
 xcopy /CIDRY "!mountdir!\Windows\Boot\DVD_EX\EFI\en-US\efisys_noprompt_EX.bin" "!isoboot!\efi\microsoft\boot\efisys_noprompt.bin" %_Nul3%
 xcopy /CIDRY "!mountdir!\Windows\Boot\FONTS_EX\*" "!isoboot!\efi\microsoft\boot\fonts\" %_Nul3%
@@ -2832,6 +2847,8 @@ goto :eof
 if exist "!isoboot!\efi\boot\bootmgfw.efi" xcopy /CIDRY "!mountdir!\Windows\Boot\EFI\bootmgfw.efi" "!isoboot!\efi\boot\bootmgfw.efi" %_Nul3%
 xcopy /CIDRY "!mountdir!\Windows\Boot\EFI\bootmgfw.efi" "!isoboot!\efi\boot\!efifile!" %_Nul3%
 xcopy /CIDRY "!mountdir!\Windows\Boot\EFI\bootmgr.efi" "!isoboot!\" %_Nul3%
+xcopy /CIDRY "!mountdir!\Windows\Boot\EFI\boot.stl" "!isoboot!\efi\microsoft\boot\" %_Nul3%
+xcopy /CIDRY "!mountdir!\Windows\Boot\EFI\boot.pnd.stl" "!isoboot!\efi\microsoft\boot\" %_Nul3%
 goto :eof
 
 :winre

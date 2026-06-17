@@ -1,6 +1,6 @@
 <!-- : Begin batch script
 @setlocal DisableDelayedExpansion
-@set uivr=v121
+@set uivr=v123
 @echo off
 :: Change to 1 to enable debug mode
 set _Debug=0
@@ -1067,6 +1067,12 @@ if !errorlevel! neq 0 (
   (echo.&echo Dism.exe Set-TargetPath for boot.wim failed)>>"!logerr!"
   )
 call :wds_rem
+if %_build% geq 22000 (
+reg.exe load "HKLM\WinPEwim" "%_mount%\Windows\System32\Config\SOFTWARE" %_Nul3%
+reg.exe add "HKLM\WinPEwim\%_wper%" /f /v CustomBackground /t REG_EXPAND_SZ /d "%_root%\System32\winre.jpg" %_Nul3%
+reg.exe delete "HKLM\WinPEwim\%_wper%" /f /v CustomShell %_Nul3%
+reg.exe unload "HKLM\WinPEwim" %_Nul3%
+)
 %_dism1% /Unmount-Wim /MountDir:"%_mount%" /Commit %_Supp%
 set ERRTEMP=%ERRORLEVEL%
 if %ERRTEMP% neq 0 (
@@ -1080,18 +1086,15 @@ goto :BootST
 
 :BootPE
 wimlib-imagex.exe extract ISOFOLDER\sources\boot.wim 1 Windows\System32\config\SOFTWARE --dest-dir=.\bin\temp --no-acls --no-attributes %_Null%
-offlinereg.exe .\bin\temp\SOFTWARE "Microsoft\Windows NT\CurrentVersion\WinPE" setvalue InstRoot X:\$windows.~bt\ %_Nul3%
-offlinereg.exe .\bin\temp\SOFTWARE.new "Microsoft\Windows NT\CurrentVersion" setvalue SystemRoot X:\$windows.~bt\Windows %_Nul3%
-del /f /q .\bin\temp\SOFTWARE
-ren .\bin\temp\SOFTWARE.new SOFTWARE
+offlinereg.exe .\bin\temp\SOFTWARE "Microsoft\Windows NT\CurrentVersion" setvalue SystemRoot X:\$windows.~bt\Windows %_Nul3%
+offlinereg.exe .\bin\temp\SOFTWARE.new "%_wper%" setvalue InstRoot X:\$windows.~bt\ %_Nul3%
+offlinereg.exe .\bin\temp\SOFTWARE.new "%_wper%" setvalue CustomBackground "%_root%\System32\winre.jpg" 2 %_Nul3%
+offlinereg.exe .\bin\temp\SOFTWARE.new "%_wper%" deletevalue CustomShell %_Nul3%
 type nul>bin\boot-wim.txt
->>bin\boot-wim.txt echo add 'bin^\temp^\SOFTWARE' '^\Windows^\System32^\config^\SOFTWARE'
+>>bin\boot-wim.txt echo add 'bin^\temp^\SOFTWARE.new' '^\Windows^\System32^\config^\SOFTWARE'
 set "_bkimg="
-if exist "ISOFOLDER\sources\winpe.jpg" del /f /q ISOFOLDER\sources\winpe.jpg %_Nul3%
-wimlib-imagex.exe extract ISOFOLDER\sources\boot.wim 1 Windows\System32\winpe.jpg --dest-dir=ISOFOLDER\sources --no-acls --no-attributes --nullglob %_Null%
-for %%# in (background_cli.bmp, background_svr.bmp, background_cli.png, background_svr.png, winpe.jpg) do (if exist "ISOFOLDER\sources\%%#" if not defined _bkimg set "_bkimg=%%#")
-if defined _bkimg if not exist "ISOFOLDER\sources\winpe.jpg" (
->>bin\boot-wim.txt echo add 'ISOFOLDER^\sources^\%_bkimg%' '^\Windows^\system32^\winpe.jpg'
+call :set_bkimg
+if defined _bkimg if not exist "ISOFOLDER\sources\winre.jpg" (
 >>bin\boot-wim.txt echo add 'ISOFOLDER^\sources^\%_bkimg%' '^\Windows^\system32^\winre.jpg'
 )
 wimlib-imagex.exe update ISOFOLDER\sources\boot.wim 1 < bin\boot-wim.txt %_Null%
@@ -1106,9 +1109,7 @@ if not defined ready2 (
 >>bin\boot-wim.txt echo add 'ISOFOLDER^\setup.exe' '^\setup.exe'
 >>bin\boot-wim.txt echo add 'ISOFOLDER^\sources^\inf^\setup.cfg' '^\sources^\inf^\setup.cfg'
 if not defined _bkimg (
-if exist "ISOFOLDER\sources\winpe.jpg" del /f /q ISOFOLDER\sources\winpe.jpg %_Nul3%
-wimlib-imagex.exe extract ISOFOLDER\sources\boot.wim 1 Windows\System32\winpe.jpg --dest-dir=ISOFOLDER\sources --no-acls --no-attributes --nullglob %_Null%
-for %%# in (background_cli.bmp, background_svr.bmp, background_cli.png, background_svr.png, winpe.jpg) do (if exist "ISOFOLDER\sources\%%#" if not defined _bkimg set "_bkimg=%%#")
+call :set_bkimg
 )
 if defined _bkimg (
 >>bin\boot-wim.txt echo add 'ISOFOLDER^\sources^\%_bkimg%' '^\sources^\background.bmp'
@@ -1116,6 +1117,8 @@ if defined _bkimg (
 )
 if defined _bkimg if not exist "ISOFOLDER\sources\winpe.jpg" (
 >>bin\boot-wim.txt echo add 'ISOFOLDER^\sources^\%_bkimg%' '^\Windows^\system32^\winpe.jpg'
+)
+if defined _bkimg if not exist "ISOFOLDER\sources\winre.jpg" (
 >>bin\boot-wim.txt echo add 'ISOFOLDER^\sources^\%_bkimg%' '^\Windows^\system32^\winre.jpg'
 )
 for /f %%# in (bin\bootwim.txt) do if exist "ISOFOLDER\sources\%%#" @(
@@ -1129,6 +1132,10 @@ wimlib-imagex.exe export %_srcwim% 1 ISOFOLDER\sources\boot.wim "Microsoft Windo
 ) else (
 wimlib-imagex.exe info ISOFOLDER\sources\boot.wim 2 "Microsoft Windows Setup (%arch%)" "Microsoft Windows Setup (%arch%)" --boot %_Nul3%
 )
+wimlib-imagex.exe extract ISOFOLDER\sources\boot.wim 2 Windows\System32\config\SOFTWARE --dest-dir=.\bin\temp --no-acls --no-attributes %_Null%
+offlinereg.exe .\bin\temp\SOFTWARE "%_wper%" setvalue CustomBackground "%_root%\System32\setup.bmp" 2 %_Nul3%
+offlinereg.exe .\bin\temp\SOFTWARE.new "%_wper%" deletevalue CustomShell %_Nul3%
+>>bin\boot-wim.txt echo add 'bin^\temp^\SOFTWARE.new' '^\Windows^\System32^\config^\SOFTWARE'
 wimlib-imagex.exe update ISOFOLDER\sources\boot.wim 2 < bin\boot-wim.txt %_Null%
 wimlib-imagex.exe info ISOFOLDER\sources\boot.wim 2 --image-property FLAGS=2 %_Nul3%
 if defined _bkimg (
@@ -1141,6 +1148,16 @@ call :dk_color1 %Blue% "=== Rebuilding boot.wim . . ." 4 5
 del /f /q bin\boot-wim.txt %_Nul3%
 del /f /q ISOFOLDER\sources\xmllite.dll %_Nul3%
 del /f /q ISOFOLDER\sources\winpe.jpg %_Nul3%
+del /f /q ISOFOLDER\sources\winre.jpg %_Nul3%
+rmdir /s /q bin\temp\
+exit /b
+
+:set_bkimg
+if exist "ISOFOLDER\sources\winpe.jpg" del /f /q ISOFOLDER\sources\winpe.jpg %_Nul3%
+if exist "ISOFOLDER\sources\winre.jpg" del /f /q ISOFOLDER\sources\winre.jpg %_Nul3%
+wimlib-imagex.exe extract ISOFOLDER\sources\boot.wim 1 Windows\System32\winpe.jpg --dest-dir=ISOFOLDER\sources --no-acls --no-attributes --nullglob %_Null%
+wimlib-imagex.exe extract ISOFOLDER\sources\boot.wim 1 Windows\System32\winre.jpg --dest-dir=ISOFOLDER\sources --no-acls --no-attributes --nullglob %_Null%
+for %%# in (background_cli.bmp, background_svr.bmp, background_cli.png, background_svr.png, winpe.jpg) do (if exist "ISOFOLDER\sources\%%#" if not defined _bkimg set "_bkimg=%%#")
 exit /b
 
 :INFO
@@ -2231,6 +2248,7 @@ if %dvd% equ 0 goto :nodvd
 if exist "%SystemRoot%\temp\UpdateAgent.dll" del /f /q "%SystemRoot%\temp\UpdateAgent.dll" %_Nul3%
 if exist "%SystemRoot%\temp\Facilitator.dll" del /f /q "%SystemRoot%\temp\Facilitator.dll" %_Nul3%
 if exist "%SystemRoot%\temp\ServicingCommon.dll" del /f /q "%SystemRoot%\temp\ServicingCommon.dll" %_Nul3%
+if exist "%SystemRoot%\temp\unbcl.dll" del /f /q "%SystemRoot%\temp\unbcl.dll" %_Nul3%
 call :updt_mount "%_target%\sources\install.wim"
 
 :nodvd
@@ -2292,6 +2310,7 @@ expand.exe -r -f:* "!_UUP!\%%~#" "%_cabdir%\du" %_Nul1%
 )
 if %_build% geq 26100 (
 if exist "%SystemRoot%\temp\ServicingCommon.dll" if not exist "%_cabdir%\du\ServicingCommon.dll" copy /y "%SystemRoot%\temp\ServicingCommon.dll" "%_cabdir%\du\" %_Nul3%
+if exist "%SystemRoot%\temp\unbcl.dll" if not exist "%_cabdir%\du\unbcl.dll" copy /y "%SystemRoot%\temp\unbcl.dll" "%_cabdir%\du\" %_Nul3%
 )
 xcopy /CDRUY "%_cabdir%\du" "ISOFOLDER\sources\" %_Nul3%
 if exist "%_cabdir%\du\*.ini" xcopy /CDRY "%_cabdir%\du\*.ini" "ISOFOLDER\sources\" %_Nul3%
@@ -3845,14 +3864,17 @@ if exist "%_mount%\Windows\Boot\EFI\winsipolicy.p7b" if exist "%_target%\efi\mic
 if exist "%_mount%\Windows\Boot\EFI\CIPolicies\" if exist "%_target%\efi\microsoft\boot\cipolicies\" xcopy /CEDRY "%_mount%\Windows\Boot\EFI\CIPolicies" "%_target%\efi\microsoft\boot\cipolicies\" %_Nul3%
 xcopy /CIDRY "%_mount%\Windows\Boot\DVD\EFI\en-US\efisys.bin" "%_target%\efi\microsoft\boot\" %_Nul3%
 xcopy /CIDRY "%_mount%\Windows\Boot\DVD\EFI\en-US\efisys_noprompt.bin" "%_target%\efi\microsoft\boot\" %_Nul3%
-if /i not %arch%==arm64 (
-xcopy /CIDRY "%_mount%\Windows\Boot\PCAT\bootmgr" "%_target%\" %_Nul3%
-xcopy /CIDRY "%_mount%\Windows\Boot\PCAT\memtest.exe" "%_target%\boot\" %_Nul3%
+xcopy /CIDRY "%_mount%\Windows\Boot\EFI\boot.stl" "%_target%\efi\microsoft\boot\" %_Nul3%
+xcopy /CIDRY "%_mount%\Windows\Boot\EFI\boot.pnd.stl" "%_target%\efi\microsoft\boot\" %_Nul3%
 xcopy /CIDRY "%_mount%\Windows\Boot\EFI\memtest.efi" "%_target%\efi\microsoft\boot\" %_Nul3%
-)
+:: if /i not %arch%==arm64 (
+:: xcopy /CIDRY "%_mount%\Windows\Boot\PCAT\bootmgr" "%_target%\" %_Nul3%
+:: xcopy /CIDRY "%_mount%\Windows\Boot\PCAT\memtest.exe" "%_target%\boot\" %_Nul3%
+:: )
 if not exist "%_mount%\Windows\Boot\EFI_EX\*_EX.efi" goto :nonewboot
+if exist "%_target%\efi\boot\bootmgfw.efi" xcopy /CIDRY "%_mount%\Windows\Boot\EFI_EX\bootmgfw_EX.efi" "%_target%\efi\boot\bootmgfw.efi" %_Nul3%
 xcopy /CIDRY "%_mount%\Windows\Boot\EFI_EX\bootmgfw_EX.efi" "%_target%\efi\boot\!efifile!" %_Nul3%
-xcopy /CIDRY "%_mount%\Windows\Boot\EFI_EX\bootmgr_EX.efi" "%_target%\bootmgr.efi" %_Nul3%
+if exist "%_mount%\Windows\Boot\EFI_EX\bootmgr_EX.efi" (xcopy /CIDRY "%_mount%\Windows\Boot\EFI_EX\bootmgr_EX.efi" "%_target%\bootmgr.efi" %_Nul3%) else (xcopy /CIDRY "%_mount%\Windows\Boot\EFI\bootmgr.efi" "%_target%\" %_Nul3%)
 xcopy /CIDRY "%_mount%\Windows\Boot\DVD_EX\EFI\en-US\efisys_EX.bin" "%_target%\efi\microsoft\boot\efisys.bin" %_Nul3%
 xcopy /CIDRY "%_mount%\Windows\Boot\DVD_EX\EFI\en-US\efisys_noprompt_EX.bin" "%_target%\efi\microsoft\boot\efisys_noprompt.bin" %_Nul3%
 xcopy /CIDRY "%_mount%\Windows\Boot\FONTS_EX\*" "%_target%\efi\microsoft\boot\fonts\" %_Nul3%
@@ -3862,6 +3884,8 @@ goto :skiphand1
 if exist "%_target%\efi\boot\bootmgfw.efi" xcopy /CIDRY "%_mount%\Windows\Boot\EFI\bootmgfw.efi" "%_target%\efi\boot\bootmgfw.efi" %_Nul3%
 xcopy /CIDRY "%_mount%\Windows\Boot\EFI\bootmgfw.efi" "%_target%\efi\boot\!efifile!" %_Nul3%
 xcopy /CIDRY "%_mount%\Windows\Boot\EFI\bootmgr.efi" "%_target%\" %_Nul3%
+xcopy /CIDRY "%_mount%\Windows\Boot\EFI\boot.stl" "%_target%\efi\microsoft\boot\" %_Nul3%
+xcopy /CIDRY "%_mount%\Windows\Boot\EFI\boot.pnd.stl" "%_target%\efi\microsoft\boot\" %_Nul3%
 :skiphand1
 if !handle2! equ 0 if not exist "%_mount%\Windows\Servicing\Packages\*WinPE-LanguagePack*.mum" if exist "%_mount%\Windows\Servicing\Packages\Package_for_RollupFix*.mum" (
 set handle2=1
@@ -3882,6 +3906,7 @@ for /f %%i in ('"offlinereg.exe "%_mount%\Windows\system32\config\SOFTWARE" "!is
 if exist "%_mount%\Windows\system32\UpdateAgent.dll" if not exist "%SystemRoot%\temp\UpdateAgent.dll" copy /y "%_mount%\Windows\system32\UpdateAgent.dll" %SystemRoot%\temp\ %_Nul1%
 if exist "%_mount%\Windows\system32\Facilitator.dll" if not exist "%SystemRoot%\temp\Facilitator.dll" copy /y "%_mount%\Windows\system32\Facilitator.dll" %SystemRoot%\temp\ %_Nul1%
 if exist "%_mount%\Windows\system32\ServicingCommon.dll" if not exist "%SystemRoot%\temp\ServicingCommon.dll" copy /y "%_mount%\Windows\system32\ServicingCommon.dll" %SystemRoot%\temp\ %_Nul1%
+if exist "%_mount%\Windows\system32\migwiz\unbcl.dll" if not exist "%SystemRoot%\temp\unbcl.dll" copy /y "%_mount%\Windows\system32\migwiz\unbcl.dll" %SystemRoot%\temp\ %_Nul1%
 set _noSave=0
 goto :doDrivers
 
@@ -4521,6 +4546,8 @@ set "_SxsCfg=Microsoft\Windows\CurrentVersion\SideBySide\Configuration"
 set "_CBS=Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages"
 set "_IFEO=HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\dismhost.exe"
 set _MOifeo=0
+set "_wper=Microsoft\Windows NT\CurrentVersion\WinPE"
+set _root=^%%SystemRoot^%%
 goto :eof
 
 :postVars
