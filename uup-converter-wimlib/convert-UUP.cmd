@@ -1,6 +1,6 @@
 <!-- : Begin batch script
 @setlocal DisableDelayedExpansion
-@set uivr=v123
+@set uivr=v124
 @echo off
 :: Change to 1 to enable debug mode
 set _Debug=0
@@ -1283,6 +1283,7 @@ set _useold=0
 if /i "%branch%"=="WinBuild" set _useold=1
 if /i "%branch%"=="GitEnlistment" set _useold=1
 if /i "%uupdate%"=="winpbld" set _useold=1
+if /i "%uupdate%"=="160101" set _useold=1
 if %_useold% equ 1 (
 wimlib-imagex.exe extract "!MetadataESD!" 3 Windows\System32\config\SOFTWARE --dest-dir=.\bin\temp --no-acls --no-attributes %_Null%
 for /f "tokens=3 delims==:" %%# in ('"offlinereg.exe .\bin\temp\SOFTWARE "Microsoft\Windows NT\CurrentVersion" getvalue BuildLabEx" %_Nul6%') do if not errorlevel 1 (for /f "tokens=1-5 delims=." %%i in ('echo %%~#') do set _legacy=%%i.%%j.%%m.%%l&set branch=%%l)
@@ -1378,6 +1379,7 @@ if %1==19045 if /i "%branch:~0,2%"=="vb" set branch=22h2%branch:~2%
 if %1==20349 if /i "%branch:~0,2%"=="fe" set branch=22h2%branch:~2%
 if %1==22631 if /i "%branch:~0,2%"=="ni" (echo %branch% | find /i "beta" %_Nul1% || set branch=23h2_ni%branch:~2%)
 if %1==26200 if /i "%branch:~0,2%"=="ge" (echo %branch% | findstr /i /r "beta prerelease" %_Nul1% || set branch=25h2_ge%branch:~2%)
+if %1==26300 if /i "%branch:~0,2%"=="ge" (echo %branch% | findstr /i /r "beta prerelease" %_Nul1% || set branch=26h2_ge%branch:~2%)
 exit /b
 
 :fixVerBrn
@@ -1426,6 +1428,11 @@ if %1==26200 (
 if /i "%_ti:~0,2%"=="ge" (echo %_ti% | findstr /i /r "beta prerelease" %_Nul1% || set _ti=25h2_ge%_ti:~2%)
 if %_tv:~0,5%==26100 set _tv=26200%_tv:~5%
 if /i "%_tb:~0,2%"=="ge" (echo %_tb% | findstr /i /r "beta prerelease" %_Nul1% || set _tb=25h2_ge%_tb:~2%)
+)
+if %1==26300 (
+if /i "%_ti:~0,2%"=="ge" (echo %_ti% | findstr /i /r "beta prerelease" %_Nul1% || set _ti=26h2_ge%_ti:~2%)
+if %_tv:~0,5%==26100 set _tv=26300%_tv:~5%
+if /i "%_tb:~0,2%"=="ge" (echo %_tb% | findstr /i /r "beta prerelease" %_Nul1% || set _tb=26h2_ge%_tb:~2%)
 )
 set "%2=%_ti%"
 set "%3=%_tv%"
@@ -1926,6 +1933,7 @@ if %uupmin% neq %xdumin% exit /b
 if /i "%xdubranch%"=="WinBuild" exit /b
 if /i "%xdubranch%"=="GitEnlistment" exit /b
 if /i "%xdudate%"=="winpbld" exit /b
+if /i "%xdudate%"=="160101" exit /b
 set tmpval=tmpval
 call :fixVerBrn %uupmaj% xdubranch xduver tmpval
 set _label=%xduver%.%xdudate%.%xdubranch%
@@ -2296,7 +2304,7 @@ del /f /q .\bin\version.txt %_Nul3%
 if not defined isobranch set "isobranch=%branch%"
 call :fixVerBrn %isomaj% isobranch iduver branch
 set _label=%isover%.%isodate%.%isobranch%
-if /i not "%branch%"=="WinBuild" if /i not "%branch%"=="GitEnlistment" if /i not "%idudate%"=="winpbld" (set _label=%iduver%.%idudate%.%branch%)
+if /i not "%branch%"=="WinBuild" if /i not "%branch%"=="GitEnlistment" if /i not "%idudate%"=="winpbld" if /i not "%idudate%"=="160101" (set _label=%iduver%.%idudate%.%branch%)
 if %isomin% neq %idumin% (set _label=%isover%.%isodate%.%isobranch%)
 call :setlabel
 exit /b
@@ -2748,9 +2756,11 @@ if exist "%~1\Microsoft-Windows-Ge-Client-Server-Beta-Version-Enablement-Package
 if exist "%~1\Microsoft-Windows-Ge-Client-Server-26200-Version-Enablement-Package~*.mum" set "_fixSV=26200"&set "_fixEP=26200"
 if exist "%~1\Microsoft-Windows-Ge-Client-Server-26220-Version-Enablement-Package~*.mum" set "_fixSV=26220"&set "_fixEP=26220"
 if exist "%~1\Microsoft-Windows-Ge-Client-Server-26300-Version-Enablement-Package~*.mum" set "_fixSV=26300"&set "_fixEP=26300"
+if exist "%~1\Microsoft-Windows-Ge-Client-Server-26320-Version-Enablement-Package~*.mum" set "_fixSV=26320"&set "_fixEP=26320"
 if exist "%~1\Microsoft-Windows-Client-Br-28020-Version-Enablement-Package~*.mum" set "_fixSV=28020"&set "_fixEP=28020"
 if exist "%~1\Microsoft-Windows-Client-Br-28100-Version-Enablement-Package~*.mum" set "_fixSV=28100"&set "_fixEP=28100"
 if exist "%~1\Microsoft-Windows-Client-Br-28120-Version-Enablement-Package~*.mum" set "_fixSV=28120"&set "_fixEP=28120"
+if exist "%~1\Microsoft-Windows-Client-Br-28220-Version-Enablement-Package~*.mum" set "_fixSV=28220"&set "_fixEP=28220"
 goto :eof
 
 :inrenrcu
@@ -4206,9 +4216,9 @@ goto :eof
 copy /y ISOFOLDER\sources\setuphost.exe %SystemRoot%\temp\ %_Nul1%
 copy /y ISOFOLDER\sources\setupprep.exe %SystemRoot%\temp\ %_Nul1%
 set _svr1=0&set _svr2=0&set _svr3=0&set _svr4=0
-set "_fvr1=%SystemRoot%\temp\UpdateAgent.dll"
-set "_fvr2=%SystemRoot%\temp\setuphost.exe"
-set "_fvr3=%SystemRoot%\temp\setupprep.exe"
+set "_fvr1=%SystemRoot%\temp\setuphost.exe"
+set "_fvr2=%SystemRoot%\temp\setupprep.exe"
+set "_fvr3=%SystemRoot%\temp\UpdateAgent.dll"
 set "_fvr4=%SystemRoot%\temp\Facilitator.dll"
 set "cfvr1=!_fvr1:\=\\!"
 set "cfvr2=!_fvr2:\=\\!"

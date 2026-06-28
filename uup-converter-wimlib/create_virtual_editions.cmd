@@ -1,6 +1,6 @@
 <!-- : Begin batch script
 @setlocal DisableDelayedExpansion
-@set uivr=v121
+@set uivr=v124
 @echo off
 :: ### Creation Method ###
 ::
@@ -1091,6 +1091,10 @@ if %revmaj%==26200 (
 if /i "%branch:~0,2%"=="ge" (echo %branch% | findstr /i /r "beta prerelease" %_Nul1% || set branch=25h2_ge%branch:~2%)
 if %uupver:~0,5%==26100 set uupver=26200%uupver:~5%
 )
+if %revmaj%==26300 (
+if /i "%branch:~0,2%"=="ge" (echo %branch% | findstr /i /r "beta prerelease" %_Nul1% || set branch=26h2_ge%branch:~2%)
+if %uupver:~0,5%==26100 set uupver=26300%uupver:~5%
+)
 if %uupmin% lss %revmin% (
 set uupver=%revver%
 set uupmin=%revmin%
@@ -1109,6 +1113,7 @@ set _useold=0
 if /i "%branch%"=="WinBuild" set _useold=1
 if /i "%branch%"=="GitEnlistment" set _useold=1
 if /i "%uupdate%"=="winpbld" set _useold=1
+if /i "%uupdate%"=="160101" set _useold=1
 if %_useold% equ 1 (
 wimlib-imagex.exe extract "%ISOdir%\sources\%WimFile%" 1 Windows\System32\config\SOFTWARE --dest-dir=.\bin\temp --no-acls --no-attributes %_Null%
 for /f "tokens=3 delims==:" %%# in ('"offlinereg.exe .\bin\temp\SOFTWARE "Microsoft\Windows NT\CurrentVersion" getvalue BuildLabEx" %_Nul6%') do if not errorlevel 1 (for /f "tokens=1-5 delims=." %%i in ('echo %%~#') do set _legacy=%%i.%%j.%%m.%%l&set branch=%%l)
@@ -1187,9 +1192,9 @@ wimlib-imagex.exe extract "%ISOdir%\sources\boot.wim" 2 sources\setupprep.exe --
 wimlib-imagex.exe extract "%ISOdir%\sources\%WimFile%" 1 Windows\system32\UpdateAgent.dll --dest-dir=%SystemRoot%\temp --no-acls --no-attributes %_Null%
 wimlib-imagex.exe extract "%ISOdir%\sources\%WimFile%" 1 Windows\system32\Facilitator.dll --dest-dir=%SystemRoot%\temp --no-acls --no-attributes %_Null%
 set _svr1=0&set _svr2=0&set _svr3=0&set _svr4=0
-set "_fvr1=%SystemRoot%\temp\UpdateAgent.dll"
+set "_fvr1=%SystemRoot%\temp\setuphost.exe"
 set "_fvr2=%SystemRoot%\temp\setupprep.exe"
-set "_fvr3=%SystemRoot%\temp\setuphost.exe"
+set "_fvr3=%SystemRoot%\temp\UpdateAgent.dll"
 set "_fvr4=%SystemRoot%\temp\Facilitator.dll"
 set "cfvr1=!_fvr1:\=\\!"
 set "cfvr2=!_fvr2:\=\\!"
