@@ -239,6 +239,12 @@ set psfcpp=0
 if exist "PSFExtractor.exe" set psfcpp=1&set _exe="!_work!\PSFExtractor.exe"
 if exist "bin\PSFExtractor.exe" set psfcpp=1&set _exe="!_work!\bin\PSFExtractor.exe"
 if not defined _sdr set psfcpp=0
+set cbscpp=0
+if exist "CBSReg.exe" set cbscpp=1&set _regexe="!_work!\CBSReg.exe"
+if exist "bin\CBSReg.exe" set cbscpp=1&set _regexe="!_work!\bin\CBSReg.exe"
+set psfdeltacpp=0
+if exist "PSFDeltaExtractor.exe" set psfdeltacpp=1&set _deltaexe="!_work!\PSFDeltaExtractor.exe"
+if exist "bin\PSFDeltaExtractor.exe" set psfdeltacpp=1&set _deltaexe="!_work!\bin\PSFDeltaExtractor.exe"
 set _reMSU=0
 set psfwim=0
 set _delta=msdelta.dll
@@ -1281,7 +1287,11 @@ if not exist "%dest%\express.psf.cix.xml" for /f %%# in ('dir /b /a:-d "%dest%\*
 set _sbst=0
 subst %_sdr% "!_cabdir!" %_Nul3% && set _sbst=1
 if !_sbst! equ 1 pushd %_sdr%
-%_Nul3% %_psc% "$f=[IO.File]::ReadAllText('!_batp!') -split ':cabpsf\:.*';iex ($f[1]);P '%package%' '%_delta%'"
+if %psfdeltacpp% equ 1 (
+  %_Nul3% !_deltaexe! "%package%" "%_delta%"
+) else (
+  %_Nul3% %_psc% "$f=[IO.File]::ReadAllText('!_batp!') -split ':cabpsf\:.*';iex ($f[1]);P '%package%' '%_delta%'"
+)
 dir /b /ad "%dest%\*_microsoft*" %_Null% || (
   echo Error: failed to extract PSF WIM update
   copy /y "%dest%\update.mum" . %_Nul3%
@@ -1795,7 +1805,7 @@ if exist "!_cabdir!\W10UImatched.txt" for /f "usebackq tokens=1 delims= " %%G in
 for %%# in (%basepkg%) do (
 (echo New-ItemProperty '%_p_%\%%#' Baseline -Value 1 -Force -EA 0)>>"!_cabdir!\W10UIreg.txt"
 )
-%_Nul3% %_psc% "$r='!_cabdir!\W10UIreg.txt'; $f=[IO.File]::ReadAllText('!_batp!') -split ':cbsreg\:.*';iex ($f[1])"
+if %cbscpp% equ 1 (%_Nul3% !_regexe! "!_cabdir!\W10UIreg.txt") else (%_Nul3% %_psc% "$r='!_cabdir!\W10UIreg.txt'; $f=[IO.File]::ReadAllText('!_batp!') -split ':cbsreg\:.*';iex ($f[1])")
 
 if %online%==0 call :hiveOFF
 goto :eof
@@ -1808,7 +1818,7 @@ if %1 neq 9 if %_build% geq 26052 (echo Remove-ItemProperty 'HKLM:\%SOFTWARE%\Mi
 if %1 neq 9 (echo New-ItemProperty '%_p_%' SupersededActions -Value %1 -Force -EA 0)>>"!_cabdir!\W10UIreg.txt"
 if %2 neq 9 (echo New-ItemProperty '%_p_%' DisableResetbase -Value %2 -Force -EA 0)>>"!_cabdir!\W10UIreg.txt"
 if %3 neq 9 (echo New-ItemProperty '%_p_%' DisableComponentBackups -Value %3 -Force -EA 0)>>"!_cabdir!\W10UIreg.txt"
-%_Nul3% %_psc% "$r='!_cabdir!\W10UIreg.txt'; $f=[IO.File]::ReadAllText('!_batp!') -split ':cbsreg\:.*';iex ($f[1])"
+if %cbscpp% equ 1 (%_Nul3% !_regexe! "!_cabdir!\W10UIreg.txt") else (%_Nul3% %_psc% "$r='!_cabdir!\W10UIreg.txt'; $f=[IO.File]::ReadAllText('!_batp!') -split ':cbsreg\:.*';iex ($f[1])")
 if %online%==0 call :hiveOFF
 goto :eof
 
