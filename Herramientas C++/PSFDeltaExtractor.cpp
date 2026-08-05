@@ -49,26 +49,18 @@ void CreateDirectoriesForFile(const std::wstring& filePath) {
     }
 }
 
-bool ReadEntireFile(const std::wstring& wPath, std::vector<BYTE>& outBuffer) {
-    HANDLE hFile = CreateFileW(wPath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE) return false;
-
-    LARGE_INTEGER liSize;
-    if (!GetFileSizeEx(hFile, &liSize) || liSize.QuadPart == 0) {
-        CloseHandle(hFile);
-        return false;
-    }
-
-    outBuffer.resize((size_t)liSize.QuadPart);
-    DWORD bytesRead = 0;
-    bool result = (ReadFile(hFile, outBuffer.data(), (DWORD)liSize.QuadPart, &bytesRead, NULL) && bytesRead == (DWORD)liSize.QuadPart);
-    CloseHandle(hFile);
-    return result;
+std::string ExtractAttribute(const std::string& block, const std::string& attrName) {
+    size_t pos = block.find(attrName);
+    if (pos == std::string::npos) return "";
+    pos += attrName.length();
+    size_t endPos = block.find("\"", pos);
+    if (endPos == std::string::npos) return "";
+    return block.substr(pos, endPos - pos);
 }
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cout << "PSFDeltaExtractor Native Reference-Aware Extractor v2.1" << std::endl;
+        std::cout << "PSFDeltaExtractor Native Deterministic Engine v4.0" << std::endl;
         std::cout << "Usage: PSFDeltaExtractor.exe <cab_package_name> [dll_path]" << std::endl;
         return 1;
     }
@@ -112,7 +104,6 @@ int main(int argc, char* argv[]) {
     std::string xmlPath = dirName + "\\express.psf.cix.xml";
 
     CreateDirectoryW(ToWString(dirName).c_str(), NULL);
-    CreateDirectoryW(ToWString(dirName + "\\000").c_str(), NULL);
 
     HANDLE hPsf = CreateFileW(ToWString(psfFileName).c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hPsf == INVALID_HANDLE_VALUE) {
@@ -129,137 +120,104 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << "PSFDeltaExtractor v2.1: Reference-aware extraction for " << psfFileName << "..." << std::endl;
+    std::string xmlContent((std::istreambuf_iterator<char>(xmlFile)), std::istreambuf_iterator<char>());
+    xmlFile.close();
 
-    std::vector<BYTE> deltaReadBuffer;
-    std::vector<BYTE> baseRefBuffer;
-    deltaReadBuffer.reserve(10 * 1024 * 1024);
+    std::cout << "PSFDeltaExtractor v4.0: Deterministic 1:1 extraction engine for " << psfFileName << "..." << std::endl;
 
-    std::string line;
-    std::string currentFileName = "";
-    std::string currentType = "RAW";
-    ULONGLONG currentOffset = 0;
-    ULONGLONG currentLength = 0;
+    std::vector<BYTE> buffer;
+    buffer.reserve(10 * 1024 * 1024);
 
     int processedCount = 0;
+    size_t pos = 0;
 
-    while (std::getline(xmlFile, line)) {
-        size_t namePos = line.find("name=\"");
-        if (namePos != std::string::npos) {
-            namePos += 6;
-            size_t nameEnd = line.find("\"", namePos);
-            if (nameEnd != std::string::npos) {
-                currentFileName = line.substr(namePos, nameEnd - namePos);
+    while ((pos = xmlContent.find("<File ", pos)) != std::string::npos) {
+        size_t endPos = xmlContent.find("</File>", pos);
+        if (endPos == std::string::npos) endPos = xmlContent.find("/>", pos);
+        if (endPos == std::string::npos) break;
+
+        std::string fileBlock = xmlContent.substr(pos, endPos - pos + 7);
+        pos = endPos + 2;
+
+        std::string fileName = ExtractAttribute(fileBlock, "name=\"");
+        std::string timeStr = ExtractAttribute(fileBlock, "time=\"");
+
+        size_t srcPos = fileBlock.find("<Source ");
+        if (srcPos == std::string::npos) continue;
+
+        std::string srcBlock = fileBlock.substr(srcPos);
+        std::string stype = ExtractAttribute(srcBlock, "type=\"");
+        std::string offsetStr = ExtractAttribute(srcBlock, "offset=\"");
+        std::string lengthStr = ExtractAttribute(srcBlock, "length=\"");
+
+        if (fileName.empty() || offsetStr.empty() || lengthStr.empty()) continue;
+
+        ULONGLONG offset = std::stoull(offsetStr);
+        ULONGLONG length = std::stoull(lengthStr);
+
+        std::string fullPathStr = dirName + "\\" + fileName;
+        std::wstring wFullPath = ToWString(fullPathStr);
+
+        if (GetFileAttributesW(wFullPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
+            CreateDirectoriesForFile(wFullPath);
+
+            LARGE_INTEGER liOffset;
+            liOffset.QuadPart = offset;
+            SetFilePointerEx(hPsf, liOffset, NULL, FILE_BEGIN);
+
+            if (buffer.size() < length) {
+                buffer.resize((size_t)length);
             }
-        }
 
-        size_t typePos = line.find("type=\"");
-        if (typePos != std::string::npos) {
-            typePos += 6;
-            size_t typeEnd = line.find("\"", typePos);
-            if (typeEnd != std::string::npos) {
-                currentType = line.substr(typePos, typeEnd - typePos);
-            }
-        }
+            DWORD bytesRead = 0;
+            if (ReadFile(hPsf, buffer.data(), (DWORD)length, &bytesRead, NULL) && bytesRead == length) {
+                HANDLE hOut = CreateFileW(wFullPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+                if (hOut != INVALID_HANDLE_VALUE) {
+                    DWORD bytesWritten = 0;
+                    WriteFile(hOut, buffer.data(), (DWORD)length, &bytesWritten, NULL);
 
-        size_t offsetPos = line.find("offset=\"");
-        if (offsetPos != std::string::npos) {
-            offsetPos += 8;
-            size_t offsetEnd = line.find("\"", offsetPos);
-            if (offsetEnd != std::string::npos) {
-                currentOffset = std::stoull(line.substr(offsetPos, offsetEnd - offsetPos));
-            }
-        }
+                    if (stype == "PA30" || stype == "PA31") {
+                        DELTA_INPUT src = { 0 };
+                        DELTA_INPUT dlt = { 0 };
+                        DELTA_OUTPUT trg = { 0 };
 
-        size_t lengthPos = line.find("length=\"");
-        if (lengthPos != std::string::npos) {
-            lengthPos += 8;
-            size_t lengthEnd = line.find("\"", lengthPos);
-            if (lengthEnd != std::string::npos) {
-                currentLength = std::stoull(line.substr(lengthPos, lengthEnd - lengthPos));
+                        dlt.lpStart = buffer.data();
+                        dlt.uSize = (SIZE_T)length;
+                        dlt.Editable = TRUE;
 
-                if (!currentFileName.empty() && currentLength > 0) {
-                    std::string fullPathStr = dirName + "\\" + currentFileName;
-                    std::wstring wFullPath = ToWString(fullPathStr);
-
-                    if (GetFileAttributesW(wFullPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
-                        CreateDirectoriesForFile(wFullPath);
-
-                        LARGE_INTEGER liOffset;
-                        liOffset.QuadPart = currentOffset;
-                        SetFilePointerEx(hPsf, liOffset, NULL, FILE_BEGIN);
-
-                        if (deltaReadBuffer.size() < currentLength) {
-                            deltaReadBuffer.resize((size_t)currentLength);
-                        }
-
-                        DWORD bytesRead = 0;
-                        if (ReadFile(hPsf, deltaReadBuffer.data(), (DWORD)currentLength, &bytesRead, NULL) && bytesRead == currentLength) {
-                            if (currentType == "RAW") {
-                                HANDLE hOut = CreateFileW(wFullPath.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-                                if (hOut != INVALID_HANDLE_VALUE) {
-                                    DWORD bytesWritten = 0;
-                                    WriteFile(hOut, deltaReadBuffer.data(), (DWORD)currentLength, &bytesWritten, NULL);
-                                    CloseHandle(hOut);
-                                }
-                            }
-                            else {
-                                std::wstring wRefPath1 = ToWString(dirName + "\\000\\" + currentFileName);
-                                std::wstring wRefPath2 = wFullPath;
-                                bool hasBaseRef = false;
-
-                                if (GetFileAttributesW(wRefPath1.c_str()) != INVALID_FILE_ATTRIBUTES) {
-                                    hasBaseRef = ReadEntireFile(wRefPath1, baseRefBuffer);
-                                } else if (GetFileAttributesW(wRefPath2.c_str()) != INVALID_FILE_ATTRIBUTES) {
-                                    hasBaseRef = ReadEntireFile(wRefPath2, baseRefBuffer);
-                                }
-
-                                DELTA_INPUT src = { 0 };
-                                if (hasBaseRef && !baseRefBuffer.empty()) {
-                                    src.lpStart = baseRefBuffer.data();
-                                    src.uSize = baseRefBuffer.size();
-                                    src.Editable = FALSE;
-                                }
-
-                                DELTA_INPUT dlt = { 0 };
-                                dlt.lpStart = deltaReadBuffer.data();
-                                dlt.uSize = (SIZE_T)currentLength;
-                                dlt.Editable = TRUE;
-
-                                DELTA_OUTPUT trg = { 0 };
-
-                                if (ApplyDeltaB(0, src, dlt, &trg) && trg.lpStart != NULL) {
-                                    HANDLE hOut = CreateFileW(wFullPath.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-                                    if (hOut != INVALID_HANDLE_VALUE) {
-                                        DWORD bytesWritten = 0;
-                                        WriteFile(hOut, trg.lpStart, (DWORD)trg.uSize, &bytesWritten, NULL);
-                                        CloseHandle(hOut);
-                                    }
-                                    DeltaFree(trg.lpStart);
-                                }
-                            }
+                        if (ApplyDeltaB(0, src, dlt, &trg) && trg.lpStart != NULL) {
+                            SetFilePointer(hOut, 0, NULL, FILE_BEGIN);
+                            SetEndOfFile(hOut);
+                            WriteFile(hOut, trg.lpStart, (DWORD)trg.uSize, &bytesWritten, NULL);
+                            DeltaFree(trg.lpStart);
                         }
                     }
 
-                    processedCount++;
-                    currentFileName = "";
-                    currentType = "RAW";
-                    currentOffset = 0;
-                    currentLength = 0;
-
-                    if (processedCount % 500 == 0) {
-                        SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
+                    if (!timeStr.empty()) {
+                        try {
+                            ULONGLONG ftVal = std::stoull(timeStr);
+                            FILETIME ft;
+                            ft.dwLowDateTime = (DWORD)(ftVal & 0xFFFFFFFF);
+                            ft.dwHighDateTime = (DWORD)(ftVal >> 32);
+                            SetFileTime(hOut, NULL, NULL, &ft);
+                        } catch (...) {}
                     }
+
+                    CloseHandle(hOut);
                 }
             }
         }
+
+        processedCount++;
+        if (processedCount % 1000 == 0) {
+            SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
+        }
     }
 
-    xmlFile.close();
     CloseHandle(hPsf);
     FreeLibrary(hDeltaModule);
 
     SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
-    std::cout << "PSFDeltaExtractor v2.1 finished: " << processedCount << " files extracted with exact reference matching." << std::endl;
+    std::cout << "PSFDeltaExtractor v4.0 finished: " << processedCount << " files extracted deterministically." << std::endl;
     return 0;
 }
