@@ -415,12 +415,13 @@ call :dPREPARE
 call :dk_color1 %Blue% "=== Rebuilding %WimFile% . . ." 4 5
 %_wrb% wimlib-imagex.exe optimize ISOFOLDER\sources\%WimFile% %_Supp%
 
+call :SET_DYNAMIC_DVDISO
 call :dk_color1 %Blue% "=== Creating ISO . . ." 4
 if defined _exTime set isotime=%_exTime%
 if /i not %arch%==arm64 (
-cdimage.exe -bootdata:2#p0,e,b"ISOFOLDER\boot\etfsboot.com"#pEF,e,b"ISOFOLDER\efi\Microsoft\boot\efisys.bin" -o -m -u2 -udfver102 -t%isotime% -l%DVDLABEL% ISOFOLDER %DVDISO%.ISO
+cdimage.exe -bootdata:2#p0,e,b"ISOFOLDER\boot\etfsboot.com"#pEF,e,b"ISOFOLDER\efi\Microsoft\boot\efisys.bin" -o -m -u2 -udfver102 -t%isotime% -l%DVDLABEL% ISOFOLDER %DVDISO%.iso
 ) else (
-cdimage.exe -bootdata:1#pEF,e,b"ISOFOLDER\efi\Microsoft\boot\efisys.bin" -o -m -u2 -udfver102 -t%isotime% -l%DVDLABEL% ISOFOLDER %DVDISO%.ISO
+cdimage.exe -bootdata:1#pEF,e,b"ISOFOLDER\efi\Microsoft\boot\efisys.bin" -o -m -u2 -udfver102 -t%isotime% -l%DVDLABEL% ISOFOLDER %DVDISO%.iso
 )
 set ERRTEMP=%ERRORLEVEL%
 if %ERRTEMP% neq 0 goto :E_ISO
@@ -582,6 +583,8 @@ if %_build% geq 22621 set _ddv=DV9
 set "DVDLABEL=CCSA_%archl%FRE_%langid%_%_ddv%"
 if defined _exLabel set _label=%_exLabel%
 set "DVDISO=%_label%MULTI_%archl%FRE_%langid%"
+set "_edtn=MULTI"
+call :SET_DYNAMIC_DVDISO
 if exist "%DVDISO%.ISO" set "DVDISO=%DVDISO%_%random%"
 goto :PROCESS_ISO
 
@@ -591,6 +594,8 @@ if %finalimages% gtr 1 exit /b
 set _VL=1
 set DVDLABEL=IOTES_%archl%FRE_%langid%_DV5
 set DVDISO=%_label%IOTENTERPRISES_OEMRET_%archl%FRE_%langid%
+set "_edtn=IoTEnterpriseS"
+call :SET_DYNAMIC_DVDISO
 if exist "!_UUP!\ei.cfg" (copy /y "!_UUP!\ei.cfg" ISOFOLDER\sources\ei.cfg %_Nul3%) else if exist "ei.cfg" (copy /y "ei.cfg" ISOFOLDER\sources\ei.cfg %_Nul3%)
 exit /b
 
@@ -820,6 +825,50 @@ if defined qmsg call :dk_color1 %Green% "%qmsg%" 4
 call :dk_color1 %_Yellow% "Press 0 or q to exit."
 choice /c 0Q /n
 if errorlevel 1 (exit /b) else (rem.)
+
+:SET_DYNAMIC_DVDISO
+set "_winver=Win10"
+set "_chk_b=!_build!"
+if "!_chk_b!"=="" set "_chk_b=%_build%"
+if "!_chk_b!"=="" if defined uupver for /f "tokens=1 delims=." %%a in ("!uupver!") do set "_chk_b=%%a"
+if "!_chk_b!"=="" if defined isover for /f "tokens=1 delims=." %%a in ("!isover!") do set "_chk_b=%%a"
+
+if not "!_chk_b!"=="" (
+    if !_chk_b! geq 22000 set "_winver=Win11"
+)
+
+set "_winh2="
+if "!_chk_b!"=="26200" set "_winh2=25H2"
+if "!_chk_b!"=="26100" set "_winh2=24H2"
+if "!_chk_b!"=="22631" set "_winh2=23H2"
+if "!_chk_b!"=="22621" set "_winh2=22H2"
+if "!_chk_b!"=="22000" set "_winh2=21H2"
+if "!_chk_b!"=="19045" set "_winh2=22H2"
+if "!_chk_b!"=="19044" set "_winh2=21H2"
+if "!_chk_b!"=="19043" set "_winh2=21H1"
+if "!_chk_b!"=="19042" set "_winh2=20H2"
+if "!_chk_b!"=="19041" set "_winh2=2004"
+if "!_chk_b!"=="17763" set "_winh2=1809"
+if "!_chk_b!"=="14393" set "_winh2=1607"
+if not defined _winh2 set "_winh2=!_chk_b!"
+
+set "_uupv=!uupver!"
+if "!_uupv!"=="" set "_uupv=!isover!"
+set "_winrev="
+if not "!_uupv!"=="" for /f "tokens=2 delims=." %%a in ("!_uupv!") do set "_winrev=%%a"
+if "!_winrev!"=="" set "_winrev=!_chk_b!"
+
+set "_winedt=!_edtn!"
+if "!_winedt!"=="" set "_winedt=!editionid!"
+if "!_winedt!"=="" set "_winedt=IoTEnterpriseS"
+
+set "_winlang=!langid!"
+if "!_winlang!"=="" set "_winlang=!_mui!"
+if "!_winlang!"=="" set "_winlang=es-mx"
+for %%# in (a b c d e f g h i j k l m n o p q r s t u v w x y z) do set "_winlang=!_winlang:%%#=%%#!"
+
+set "DVDISO=!_winver!_!_winh2!_!_winedt!_!_winrev!_!_winlang!"
+exit /b
 
 ----- Begin wsf script --->
 <package>

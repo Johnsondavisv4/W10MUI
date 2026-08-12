@@ -762,6 +762,7 @@ set isiso=1
 set _rtrn=finISO
 goto :esdSWM
 :finISO
+call :SET_DYNAMIC_DVDISO
 if %SkipISO% neq 0 (
   ren ISOFOLDER %DVDISO%
   set qmsg=Finished. You chose not to create iso file.
@@ -769,9 +770,9 @@ if %SkipISO% neq 0 (
 )
 call :dk_color1 %Blue% "=== Creating ISO . . ." 4
 if /i not %arch%==arm64 (
-cdimage.exe -bootdata:2#p0,e,b"ISOFOLDER\boot\etfsboot.com"#pEF,e,b"ISOFOLDER\efi\Microsoft\boot\efisys.bin" -o -m -u2 -udfver102 -t%isotime% -l%DVDLABEL% ISOFOLDER %DVDISO%.ISO %_Supp%
+cdimage.exe -bootdata:2#p0,e,b"ISOFOLDER\boot\etfsboot.com"#pEF,e,b"ISOFOLDER\efi\Microsoft\boot\efisys.bin" -o -m -u2 -udfver102 -t%isotime% -l%DVDLABEL% ISOFOLDER %DVDISO%.iso %_Supp%
 ) else (
-cdimage.exe -bootdata:1#pEF,e,b"ISOFOLDER\efi\Microsoft\boot\efisys.bin" -o -m -u2 -udfver102 -t%isotime% -l%DVDLABEL% ISOFOLDER %DVDISO%.ISO %_Supp%
+cdimage.exe -bootdata:1#pEF,e,b"ISOFOLDER\efi\Microsoft\boot\efisys.bin" -o -m -u2 -udfver102 -t%isotime% -l%DVDLABEL% ISOFOLDER %DVDISO%.iso %_Supp%
 )
 set ERRTEMP=%ERRORLEVEL%
 if %ERRTEMP% neq 0 goto :E_ISO
@@ -1367,7 +1368,54 @@ if /i %editionid%==ServerDatacenter (if %VOL% equ 1 (set DVDLABEL=SSS_%archl%FRE
 if /i %editionid%==ServerDatacenterCore (if %VOL% equ 1 (set DVDLABEL=SSS_%archl%FREV_%langid%_%_ddv%&set DVDISO=%_label%DATACENTERCORE_VOL_%archl%FRE_%langid%) else (set DVDLABEL=SSS_%archl%FRE_%langid%_%_ddv%&set DVDISO=%_label%DATACENTERCORE_OEMRET_%archl%FRE_%langid%))&exit /b
 if /i %editionid%==ServerTurbine (if %VOL% equ 1 (set DVDLABEL=SADC_%archl%FREV_%langid%_%_ddv%&set DVDISO=%_label%TURBINE_VOL_%archl%FRE_%langid%) else (set DVDLABEL=SADC_%archl%FRE_%langid%_%_ddv%&set DVDISO=%_label%TURBINE_OEMRET_%archl%FRE_%langid%))&exit /b
 if /i %editionid%==ServerTurbineCore (if %VOL% equ 1 (set DVDLABEL=SADC_%archl%FREV_%langid%_%_ddv%&set DVDISO=%_label%TURBINECOR_VOL_%archl%FRE_%langid%) else (set DVDLABEL=SADC_%archl%FRE_%langid%_%_ddv%&set DVDISO=%_label%TURBINECOR_OEMRET_%archl%FRE_%langid%))&exit /b
-if /i %editionid%==ServerAzureStackHCICor set DVDLABEL=SASH_%archl%FRE_%langid%_%_ddv%&set DVDISO=%_label%AZURESTACKHCI_RET_%archl%FRE_%langid%&exit /b
+if /i %editionid%==ServerAzureStackHCICor set DVDLABEL=SASH_%archl%FRE_%langid%_%_ddv%&set DVDISO=%_label%AZURESTACKHCI_RET_%archl%FRE_%langid%&call :SET_DYNAMIC_DVDISO&exit /b
+call :SET_DYNAMIC_DVDISO
+exit /b
+
+:SET_DYNAMIC_DVDISO
+set "_winver=Win10"
+set "_chk_b=!_build!"
+if "!_chk_b!"=="" set "_chk_b=%_build%"
+if "!_chk_b!"=="" if defined uupver for /f "tokens=1 delims=." %%a in ("!uupver!") do set "_chk_b=%%a"
+if "!_chk_b!"=="" if defined isover for /f "tokens=1 delims=." %%a in ("!isover!") do set "_chk_b=%%a"
+
+if not "!_chk_b!"=="" (
+    if !_chk_b! geq 22000 set "_winver=Win11"
+)
+
+set "_winh2="
+if "!_chk_b!"=="26200" set "_winh2=25H2"
+if "!_chk_b!"=="26100" set "_winh2=24H2"
+if "!_chk_b!"=="22631" set "_winh2=23H2"
+if "!_chk_b!"=="22621" set "_winh2=22H2"
+if "!_chk_b!"=="22000" set "_winh2=21H2"
+if "!_chk_b!"=="19045" set "_winh2=22H2"
+if "!_chk_b!"=="19044" set "_winh2=21H2"
+if "!_chk_b!"=="19043" set "_winh2=21H1"
+if "!_chk_b!"=="19042" set "_winh2=20H2"
+if "!_chk_b!"=="19041" set "_winh2=2004"
+if "!_chk_b!"=="17763" set "_winh2=1809"
+if "!_chk_b!"=="14393" set "_winh2=1607"
+if not defined _winh2 set "_winh2=!_chk_b!"
+
+set "_uupv=!uupver!"
+if "!_uupv!"=="" set "_uupv=!isover!"
+set "_winrev="
+if not "!_uupv!"=="" for /f "tokens=2 delims=." %%a in ("!_uupv!") do set "_winrev=%%a"
+if "!_winrev!"=="" set "_winrev=!_chk_b!"
+
+set "_winedt=!_edtn!"
+if "!_winedt!"=="" set "_winedt=!editionid!"
+if "!AIO!"=="1" set "_winedt=MULTI"
+if not "!_count!"=="" (if !_count! gtr 1 set "_winedt=MULTI")
+if "!_winedt!"=="" set "_winedt=MULTI"
+
+set "_winlang=!langid!"
+if "!_winlang!"=="" set "_winlang=!_mui!"
+if "!_winlang!"=="" set "_winlang=es-mx"
+for %%# in (a b c d e f g h i j k l m n o p q r s t u v w x y z) do set "_winlang=!_winlang:%%#=%%#!"
+
+set "DVDISO=!_winver!_!_winh2!_!_winedt!_!_winrev!_!_winlang!"
 exit /b
 
 :fixBranch
@@ -2626,8 +2674,14 @@ if not exist "!dest!\express.psf.cix.xml" for /f %%# in ('dir /b /a:-d "!dest!\*
 set _sbst=0
 subst %_sdr% "!_cabdir!" %_Nul3% && set _sbst=1
 if !_sbst! equ 1 pushd %_sdr%
-if not exist "psfx.txt" copy /y "!_work!\bin\psfx.txt" . %_Nul3%
-%_Nul3% %_pspsfx% "Set-Location -LiteralPath '!_cabdir!'; $f=[IO.File]::ReadAllText('.\psfx.txt') -split ':cabpsf\:.*';iex ($f[1]);P '!_cabdir!\%package%' '%_delta%'"
+if exist "!_work!\bin\PSFDeltaExtractor.exe" (
+    "!_work!\bin\PSFDeltaExtractor.exe" "!_cabdir!\%package%" %_Nul3%
+) else if exist "PSFDeltaExtractor.exe" (
+    "PSFDeltaExtractor.exe" "!_cabdir!\%package%" %_Nul3%
+) else (
+    if not exist "psfx.txt" copy /y "!_work!\bin\psfx.txt" . %_Nul3%
+    %_Nul3% %_pspsfx% "Set-Location -LiteralPath '!_cabdir!'; $f=[IO.File]::ReadAllText('.\psfx.txt') -split ':cabpsf\:.*';iex ($f[1]);P '!_cabdir!\%package%' '%_delta%'"
+)
 dir /b /ad "!dest!\*_microsoft*" %_Null% || (
   call :dk_color1 %Red% "Error: failed to extract %pkgn%.psf"
   (echo.&echo failed to extract %pkgn%.psf)>>"!logerr!"
@@ -3138,10 +3192,16 @@ if exist "!_cabdir!\W10UImatched.txt" for /f "usebackq tokens=1 delims= " %%G in
 for %%# in (%basepkg%) do (
 (echo New-ItemProperty '%_p_%\%%#' Baseline -Value 1 -Force -EA 0)>>"!_cabdir!\W10UIreg.txt"
 )
-pushd "!_cabdir!"
-if not exist "tiTkn.txt" copy /y "!_work!\bin\tiTkn.txt" . %_Nul3%
-%_Nul3% %_psc% "Set-Location -LiteralPath '!_cabdir!'; $r='!_cabdir!\W10UIreg.txt'; $f=[IO.File]::ReadAllText('.\tiTkn.txt') -split ':cbsreg\:.*';iex ($f[1])"
-popd
+if exist "!_work!\bin\CBSReg.exe" (
+    "!_work!\bin\CBSReg.exe" "!_cabdir!\W10UIreg.txt" %_Nul3%
+) else if exist "CBSReg.exe" (
+    "CBSReg.exe" "!_cabdir!\W10UIreg.txt" %_Nul3%
+) else (
+    pushd "!_cabdir!"
+    if not exist "tiTkn.txt" copy /y "!_work!\bin\tiTkn.txt" . %_Nul3%
+    %_Nul3% %_psc% "Set-Location -LiteralPath '!_cabdir!'; $r='!_cabdir!\W10UIreg.txt'; $f=[IO.File]::ReadAllText('.\tiTkn.txt') -split ':cbsreg\:.*';iex ($f[1])"
+    popd
+)
 
 call :hiveOFF
 goto :eof
@@ -3154,10 +3214,16 @@ if %1 neq 9 if %_build% geq 26052 (echo Remove-ItemProperty 'HKLM:\%SOFTWARE%\Mi
 if %1 neq 9 (echo New-ItemProperty '%_p_%' SupersededActions -Value %1 -Force -EA 0)>>"!_cabdir!\W10UIreg.txt"
 if %2 neq 9 (echo New-ItemProperty '%_p_%' DisableResetbase -Value %2 -Force -EA 0)>>"!_cabdir!\W10UIreg.txt"
 if %3 neq 9 (echo New-ItemProperty '%_p_%' DisableComponentBackups -Value %3 -Force -EA 0)>>"!_cabdir!\W10UIreg.txt"
-pushd "!_cabdir!"
-if not exist "tiTkn.txt" copy /y "!_work!\bin\tiTkn.txt" . %_Nul3%
-%_Nul3% %_psc% "Set-Location -LiteralPath '!_cabdir!'; $r='!_cabdir!\W10UIreg.txt'; $f=[IO.File]::ReadAllText('.\tiTkn.txt') -split ':cbsreg\:.*';iex ($f[1])"
-popd
+if exist "!_work!\bin\CBSReg.exe" (
+    "!_work!\bin\CBSReg.exe" "!_cabdir!\W10UIreg.txt" %_Nul3%
+) else if exist "CBSReg.exe" (
+    "CBSReg.exe" "!_cabdir!\W10UIreg.txt" %_Nul3%
+) else (
+    pushd "!_cabdir!"
+    if not exist "tiTkn.txt" copy /y "!_work!\bin\tiTkn.txt" . %_Nul3%
+    %_Nul3% %_psc% "Set-Location -LiteralPath '!_cabdir!'; $r='!_cabdir!\W10UIreg.txt'; $f=[IO.File]::ReadAllText('.\tiTkn.txt') -split ':cbsreg\:.*';iex ($f[1])"
+    popd
+)
 call :hiveOFF
 goto :eof
 

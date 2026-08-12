@@ -3714,7 +3714,55 @@ if /i %arch%==x86 set archl=X86
 if /i %arch%==x64 set archl=X64
 if /i %arch%==arm64 set archl=A64
 if exist "!target!\sources\lang.ini" call :LANGISO
-if defined _mui (set "isofile=%_label%_%archl%FRE_%_mui%.iso") else (set "isofile=%_label%_%archl%FRE.iso")
+
+set "_winver=Win10"
+set "_isov=!isover!"
+set "_isom=!isomaj!"
+set "_ison=!isomin!"
+if "!_isom!"=="" if not "!_isov!"=="" for /f "tokens=1,2 delims=." %%a in ("!_isov!") do set "_isom=%%a"&set "_ison=%%b"
+set "_chk_b=!_build!"
+if "!_chk_b!"=="" set "_chk_b=!_isom!"
+
+if not "!_chk_b!"=="" (
+    if !_chk_b! geq 22000 set "_winver=Win11"
+)
+
+set "_winh2="
+if "!_chk_b!"=="26200" set "_winh2=25H2"
+if "!_chk_b!"=="26100" set "_winh2=24H2"
+if "!_chk_b!"=="22631" set "_winh2=23H2"
+if "!_chk_b!"=="22621" set "_winh2=22H2"
+if "!_chk_b!"=="22000" set "_winh2=21H2"
+if "!_chk_b!"=="19045" set "_winh2=22H2"
+if "!_chk_b!"=="19044" set "_winh2=21H2"
+if "!_chk_b!"=="19043" set "_winh2=21H1"
+if "!_chk_b!"=="19042" set "_winh2=20H2"
+if "!_chk_b!"=="19041" set "_winh2=2004"
+if "!_chk_b!"=="17763" set "_winh2=1809"
+if "!_chk_b!"=="14393" set "_winh2=1607"
+if not defined _winh2 set "_winh2=!_chk_b!"
+
+set "_winrev=!_ison!"
+if "!_winrev!"=="" if not "!_isov!"=="" for /f "tokens=2 delims=." %%a in ("!_isov!") do set "_winrev=%%a"
+if "!_winrev!"=="" set "_winrev=!_chk_b!"
+
+set "_winedt=!_edtn!"
+if "!_winedt!"=="" set "_winedt=!editionid!"
+if "!_winedt!"=="" (
+    if "!_SrvEdt!"=="1" (set "_winedt=Server") else (
+        if exist "!target!\sources\install.wim" (
+            for /f "tokens=3 delims=<>" %%# in ('imagex /info "!target!\sources\install.wim" 1 2^>nul ^| find /i "<EDITIONID>"') do set "_winedt=%%#"
+        )
+    )
+)
+if "!_winedt!"=="" set "_winedt=CLIENT"
+
+set "_winlang=!_mui!"
+if "!_winlang!"=="" set "_winlang=!langid!"
+if "!_winlang!"=="" set "_winlang=es-mx"
+for %%# in (a b c d e f g h i j k l m n o p q r s t u v w x y z) do set "_winlang=!_winlang:%%#=%%#!"
+
+set "isofile=!_winver!_!_winh2!_!_winedt!_!_winrev!_!_winlang!.iso"
 set /a rnd=%random%
 if exist "!isodir!\%isofile%" ren "!isodir!\%isofile%" "%rnd%_%isofile%"
 echo.
