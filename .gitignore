@@ -1,0 +1,31 @@
+# 1. Ignorar todo por defecto
+*
+
+# 2. Permitir .gitignore y archivos de la raíz
+!.gitignore
+!Check.ps1
+!SO.ps1
+!Updates.ps1
+!data.ini
+
+# 3. Herramientas C++
+!/Herramientas C++/
+!/Herramientas C++/CBSReg.cpp
+!/Herramientas C++/PSFDeltaExtractor.cpp
+!/Herramientas C++/build.cmd
+!/Herramientas C++/build_CBSReg.cmd
+!/Herramientas C++/build_PSFDeltaExtractor.cmd
+
+# 4. W10UI y sus binarios específicos
+!/W10UI/
+!/W10UI/W10UI.cmd
+!/W10UI/W10UI.ini
+!/W10UI/bin/*
+
+# 5. uup-converter-wimlib y sus binarios específicos
+!/uup-converter-wimlib/
+!/uup-converter-wimlib/convert-UUP.cmd
+!/uup-converter-wimlib/To_IoT_LTSC.cmd
+!/uup-converter-wimlib/create_virtual_editions.cmd
+!/uup-converter-wimlib/ConvertConfig.ini
+!/uup-converter-wimlib/bin/*
