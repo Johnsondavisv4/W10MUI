@@ -3715,18 +3715,117 @@ if /i %arch%==x64 set archl=X64
 if /i %arch%==arm64 set archl=A64
 if exist "!target!\sources\lang.ini" call :LANGISO
 
-set "_winver=Win10"
-set "_isov=!isover!"
-set "_isom=!isomaj!"
-set "_ison=!isomin!"
-if "!_isom!"=="" if not "!_isov!"=="" for /f "tokens=1,2 delims=." %%a in ("!_isov!") do set "_isom=%%a"&set "_ison=%%b"
-set "_chk_b=!_build!"
-if "!_chk_b!"=="" set "_chk_b=!_isom!"
+set "_target_img="
+if exist "!target!\sources\install.wim" set "_target_img=!target!\sources\install.wim"
+if exist "!target!\sources\install.esd" set "_target_img=!target!\sources\install.esd"
+if exist "!target!\sources\install.swm" set "_target_img=!target!\sources\install.swm"
+if not defined _target_img if exist "!target!\install.wim" set "_target_img=!target!\install.wim"
+if not defined _target_img if exist "!target!\install.esd" set "_target_img=!target!\install.esd"
+if not defined _target_img if exist "!target!\install.swm" set "_target_img=!target!\install.swm"
+if not defined _target_img if exist "sources\install.wim" set "_target_img=sources\install.wim"
+if not defined _target_img if exist "sources\install.esd" set "_target_img=sources\install.esd"
+if not defined _target_img if exist "sources\install.swm" set "_target_img=sources\install.swm"
+if not defined _target_img if exist "!_work!\DVD10UI\sources\install.wim" set "_target_img=!_work!\DVD10UI\sources\install.wim"
+if not defined _target_img if exist "!_work!\DVD10UI\sources\install.esd" set "_target_img=!_work!\DVD10UI\sources\install.esd"
+if not defined _target_img if exist "!_work!\DVD10UI\sources\install.swm" set "_target_img=!_work!\DVD10UI\sources\install.swm"
+if not defined _target_img if exist "!targetpath!install.wim" set "_target_img=!targetpath!install.wim"
+if not defined _target_img if exist "!targetpath!install.esd" set "_target_img=!targetpath!install.esd"
+if not defined _target_img if exist "!targetname!" set "_target_img=!targetname!"
 
-if not "!_chk_b!"=="" (
-    if !_chk_b! geq 22000 set "_winver=Win11"
+if not defined _wimlib (
+    if exist "!_work!\bin\bin64\wimlib-imagex.exe" set _wimlib="!_work!\bin\bin64\wimlib-imagex.exe"
+    if not defined _wimlib if exist "!_work!\bin\wimlib-imagex.exe" set _wimlib="!_work!\bin\wimlib-imagex.exe"
+    if not defined _wimlib if exist "!_work!\wimlib-imagex.exe" set _wimlib="!_work!\wimlib-imagex.exe"
+    if not defined _wimlib if exist "bin\bin64\wimlib-imagex.exe" set _wimlib=bin\bin64\wimlib-imagex.exe
+    if not defined _wimlib if exist "bin\wimlib-imagex.exe" set _wimlib=bin\wimlib-imagex.exe
+    if not defined _wimlib if exist "wimlib-imagex.exe" set _wimlib=wimlib-imagex.exe
 )
 
+set "_xml_winedt="
+set "_xml_flags="
+set "_xml_build="
+set "_xml_spbuild="
+set "_xml_lang="
+set "_xml_type="
+set "_xml_arch="
+set "_xml_imgcount=0"
+
+if defined _target_img if defined _wimlib (
+    set "_xml_tmp=!_cabdir!\wiminfo_%random%.xml"
+    if not defined _cabdir set "_xml_tmp=!_work!\wiminfo_%random%.xml"
+    if not exist "!_cabdir!\" set "_xml_tmp=!_work!\wiminfo_%random%.xml"
+    if exist "!_xml_tmp!" del /f /q "!_xml_tmp!" %_Nul3%
+
+    !_wimlib! info "!_target_img!" --extract-xml "!_xml_tmp!" %_Nul3%
+    if exist "!_xml_tmp!" (
+        if %_pwsh% equ 1 (
+            for /f "tokens=1-8" %%A in ('%_psc% "$x=[xml](Get-Content '!_xml_tmp!' -Raw); $i=@($x.WIM.IMAGE); $c=$i.Count; $f=$i[0]; $e=if($f.WINDOWS.EDITIONID){$f.WINDOWS.EDITIONID}else{'-'}; $fl=if($f.FLAGS){$f.FLAGS}else{'-'}; $b=if($f.WINDOWS.VERSION.BUILD){$f.WINDOWS.VERSION.BUILD}else{'-'}; $s=if($f.WINDOWS.VERSION.SPBUILD){$f.WINDOWS.VERSION.SPBUILD}elseif($f.WINDOWS.SERVICINGDATA.GDRUBR){$f.WINDOWS.SERVICINGDATA.GDRUBR}else{'-'}; $l=if($f.WINDOWS.LANGUAGES.DEFAULT){$f.WINDOWS.LANGUAGES.DEFAULT}elseif($f.WINDOWS.LANGUAGES.LANGUAGE){@($f.WINDOWS.LANGUAGES.LANGUAGE)[0]}else{'-'}; $t=if($f.WINDOWS.INSTALLATIONTYPE){$f.WINDOWS.INSTALLATIONTYPE}else{'-'}; $a=if($f.WINDOWS.ARCH){$f.WINDOWS.ARCH}else{'-'}; Write-Output \"$c $e $fl $b $s $l $t $a\""') do (
+                set "_xml_imgcount=%%A"
+                if not "%%B"=="-" set "_xml_winedt=%%B"
+                if not "%%C"=="-" set "_xml_flags=%%C"
+                if not "%%D"=="-" set "_xml_build=%%D"
+                if not "%%E"=="-" set "_xml_spbuild=%%E"
+                if not "%%F"=="-" set "_xml_lang=%%F"
+                if not "%%G"=="-" set "_xml_type=%%G"
+                if not "%%H"=="-" set "_xml_arch=%%H"
+            )
+        )
+        del /f /q "!_xml_tmp!" %_Nul3%
+    )
+)
+
+:: Architecture fallback
+if not defined archl (
+    if "!_xml_arch!"=="9" set "archl=X64"
+    if "!_xml_arch!"=="0" set "archl=X86"
+    if "!_xml_arch!"=="12" set "archl=A64"
+)
+if not defined archl (
+    if /i "%arch%"=="x86" set "archl=X86"
+    if /i "%arch%"=="x64" set "archl=X64"
+    if /i "%arch%"=="arm64" set "archl=A64"
+)
+if not defined archl set "archl=X64"
+
+:: Build determination: prefer XML build or updated isomaj over initial _build
+set "_chk_b="
+if not "!_xml_build!"=="" set "_chk_b=!_xml_build!"
+if "!_chk_b!"=="" if not "!isomaj!"=="" set "_chk_b=!isomaj!"
+if "!_chk_b!"=="" if not "!isover!"=="" for /f "tokens=1 delims=." %%a in ("!isover!") do set "_chk_b=%%a"
+if "!_chk_b!"=="" set "_chk_b=!_build!"
+
+:: Revision (UBR) determination: prefer XML spbuild, then isomin/isover, fallback to _chk_b
+set "_winrev="
+if not "!_xml_spbuild!"=="" set "_winrev=!_xml_spbuild!"
+if "!_winrev!"=="" if not "!isomin!"=="" if not "!isomin!"=="0" set "_winrev=!isomin!"
+if "!_winrev!"=="" if not "!isover!"=="" for /f "tokens=2 delims=." %%a in ("!isover!") do set "_winrev=%%a"
+if "!_winrev!"=="" set "_winrev=!_chk_b!"
+
+:: Windows Server vs Client determination
+set "_is_srv=0"
+if "!_SrvEdt!"=="1" set "_is_srv=1"
+if /i "!_xml_type!"=="Server" set "_is_srv=1"
+if /i "!_xml_winedt:~0,6!"=="Server" set "_is_srv=1"
+
+set "_winver=Win10"
+if %_is_srv% equ 1 (
+    set "_winver=Server"
+    if not "!_chk_b!"=="" (
+        if !_chk_b! geq 26100 (set "_winver=Server2025") else (
+            if !_chk_b! geq 20348 (set "_winver=Server2022") else (
+                if !_chk_b! geq 17763 (set "_winver=Server2019") else (
+                    if !_chk_b! geq 14393 set "_winver=Server2016"
+                )
+            )
+        )
+    )
+) else (
+    if not "!_chk_b!"=="" (
+        if !_chk_b! geq 22000 set "_winver=Win11"
+    )
+)
+
+:: H2 feature release branch
 set "_winh2="
 if "!_chk_b!"=="26200" set "_winh2=25H2"
 if "!_chk_b!"=="26100" set "_winh2=24H2"
@@ -3742,23 +3841,32 @@ if "!_chk_b!"=="17763" set "_winh2=1809"
 if "!_chk_b!"=="14393" set "_winh2=1607"
 if not defined _winh2 set "_winh2=!_chk_b!"
 
-set "_winrev=!_ison!"
-if "!_winrev!"=="" if not "!_isov!"=="" for /f "tokens=2 delims=." %%a in ("!_isov!") do set "_winrev=%%a"
-if "!_winrev!"=="" set "_winrev=!_chk_b!"
-
-set "_winedt=!_edtn!"
-if "!_winedt!"=="" set "_winedt=!editionid!"
-if "!_winedt!"=="" (
-    if "!_SrvEdt!"=="1" (set "_winedt=Server") else (
-        if exist "!target!\sources\install.wim" (
-            for /f "tokens=3 delims=<>" %%# in ('imagex /info "!target!\sources\install.wim" 1 2^>nul ^| find /i "<EDITIONID>"') do set "_winedt=%%#"
-        )
+:: Edition determination: check MULTI first, then XML, then fallbacks
+set "_winedt="
+if defined imgcount (if !imgcount! gtr 1 set "_winedt=MULTI")
+if defined _xml_imgcount (if !_xml_imgcount! gtr 1 set "_winedt=MULTI")
+if "!_winedt!"=="" if not "!_xml_winedt!"=="" set "_winedt=!_xml_winedt!"
+if "!_winedt!"=="" if not "!_xml_flags!"=="" set "_winedt=!_xml_flags!"
+if "!_winedt!"=="" if defined _edtn set "_winedt=!_edtn!"
+if "!_winedt!"=="" if defined editionid set "_winedt=!editionid!"
+if "!_winedt!"=="" if defined name1 (
+    echo !name1! | findstr /i "IoT" | findstr /i "Enterprise" 1>nul && (
+        echo !name1! | findstr /i "LTSC" 1>nul && set "_winedt=IoTEnterpriseS" || set "_winedt=IoTEnterprise"
     )
+    if "!_winedt!"=="" echo !name1! | findstr /i "Enterprise" 1>nul && (
+        echo !name1! | findstr /i "LTSC" 1>nul && set "_winedt=EnterpriseS" || set "_winedt=Enterprise"
+    )
+    if "!_winedt!"=="" echo !name1! | findstr /i "Pro" 1>nul && set "_winedt=Professional"
+    if "!_winedt!"=="" echo !name1! | findstr /i "Home" 1>nul && set "_winedt=Core"
+    if "!_winedt!"=="" echo !name1! | findstr /i "Education" 1>nul && set "_winedt=Education"
 )
-if "!_winedt!"=="" set "_winedt=CLIENT"
+if "!_winedt!"=="" (if %_is_srv% equ 1 (set "_winedt=Server") else (set "_winedt=CLIENT"))
 
-set "_winlang=!_mui!"
-if "!_winlang!"=="" set "_winlang=!langid!"
+:: Language determination: prefer XML lang, then sources\lang.ini, then fallbacks
+set "_winlang="
+if not "!_xml_lang!"=="" set "_winlang=!_xml_lang!"
+if "!_winlang!"=="" if defined _mui set "_winlang=!_mui!"
+if "!_winlang!"=="" if defined langid set "_winlang=!langid!"
 if "!_winlang!"=="" set "_winlang=es-mx"
 for %%# in (a b c d e f g h i j k l m n o p q r s t u v w x y z) do set "_winlang=!_winlang:%%#=%%#!"
 
